@@ -101,6 +101,10 @@ pub struct JavascriptFormatter {
     /// Whether to insert spaces around brackets in object literals. Defaults to true.
     #[partial(bpaf(long("bracket-spacing"), argument("true|false"), optional))]
     pub bracket_spacing: Option<BracketSpacing>,
+
+    /// Whether to add spaces inside parentheses. Defaults to false.
+    #[partial(bpaf(long("space-around-stuff"), argument("true|false"), optional))]
+    pub space_around_stuff: bool,
 }
 
 impl PartialJavascriptFormatter {
@@ -122,6 +126,7 @@ impl PartialJavascriptFormatter {
             line_width: self.line_width,
             quote_style: self.quote_style.unwrap_or_default(),
             attribute_position: self.attribute_position,
+            space_around_stuff: self.space_around_stuff.unwrap_or_default(),
         }
     }
 }
@@ -145,6 +150,7 @@ impl Default for JavascriptFormatter {
             line_width: Default::default(),
             quote_style: Default::default(),
             attribute_position: Default::default(),
+            space_around_stuff: Default::default(),
         }
     }
 }

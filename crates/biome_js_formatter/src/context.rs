@@ -172,6 +172,9 @@ pub struct JsFormatOptions {
 
     /// Attribute position style. By default auto.
     attribute_position: AttributePosition,
+
+    /// Whether to add spaces inside parentheses. Defaults to false.
+    space_around_stuff: bool,
 }
 
 impl JsFormatOptions {
@@ -191,6 +194,7 @@ impl JsFormatOptions {
             bracket_spacing: BracketSpacing::default(),
             bracket_same_line: BracketSameLine::default(),
             attribute_position: AttributePosition::default(),
+            space_around_stuff: false,
         }
     }
 
@@ -259,6 +263,11 @@ impl JsFormatOptions {
         self
     }
 
+    pub fn with_space_around_stuff(mut self, space_around_stuff: bool) -> Self {
+        self.space_around_stuff = space_around_stuff;
+        self
+    }
+
     pub fn set_arrow_parentheses(&mut self, arrow_parentheses: ArrowParentheses) {
         self.arrow_parentheses = arrow_parentheses;
     }
@@ -302,12 +311,17 @@ impl JsFormatOptions {
     pub fn set_trailing_commas(&mut self, trailing_commas: TrailingCommas) {
         self.trailing_commas = trailing_commas;
     }
+
     pub fn set_attribute_position(&mut self, attribute_position: AttributePosition) {
         self.attribute_position = attribute_position;
     }
 
     pub fn set_semicolons(&mut self, semicolons: Semicolons) {
         self.semicolons = semicolons;
+    }
+
+    pub fn set_space_around_stuff(&mut self, space_around_stuff: bool) {
+        self.space_around_stuff = space_around_stuff;
     }
 
     pub fn arrow_parentheses(&self) -> ArrowParentheses {
@@ -352,6 +366,10 @@ impl JsFormatOptions {
 
     pub fn attribute_position(&self) -> AttributePosition {
         self.attribute_position
+    }
+
+    pub fn space_around_stuff(&self) -> bool {
+        self.space_around_stuff
     }
 }
 
@@ -399,7 +417,8 @@ impl fmt::Display for JsFormatOptions {
         writeln!(f, "Arrow parentheses: {}", self.arrow_parentheses)?;
         writeln!(f, "Bracket spacing: {}", self.bracket_spacing.value())?;
         writeln!(f, "Bracket same line: {}", self.bracket_same_line.value())?;
-        writeln!(f, "Attribute Position: {}", self.attribute_position)
+        writeln!(f, "Attribute Position: {}", self.attribute_position)?;
+        writeln!(f, "Space around stuff: {}", self.space_around_stuff)
     }
 }
 

@@ -14,9 +14,17 @@ mod language {
 // use this test check if your snippet prints as you wish, without using a snapshot
 fn quick_test() {
     let src = r#"
-export let shim: typeof import("./foo2") = {
-    Bar: Bar2
-};
+if(x > 0) {
+    console.log("positive");
+} else if(x < 0) {
+    console.log("negative");
+} else {
+    console.log("zero");
+}
+
+if(someVeryLongConditionThatWillDefinitelyBreak && anotherLongConditionThatHelpsBreaking && yetAnotherConditionToMakeSureItBreaks) {
+    console.log("this should break into multiple lines");
+}
     "#;
     let source_type = JsFileSource::tsx();
     let tree = parse(
@@ -31,7 +39,8 @@ export let shim: typeof import("./foo2") = {
         .with_quote_style(QuoteStyle::Double)
         .with_jsx_quote_style(QuoteStyle::Single)
         .with_arrow_parentheses(ArrowParentheses::AsNeeded)
-        .with_attribute_position(AttributePosition::Multiline);
+        .with_attribute_position(AttributePosition::Multiline)
+        .with_space_around_stuff(true);
 
     let doc = format_node(options.clone(), &tree.syntax()).unwrap();
     let result = doc.print().unwrap();
