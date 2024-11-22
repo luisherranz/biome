@@ -1,11 +1,8 @@
 ---
 source: crates/biome_formatter_test/src/snapshot_builder.rs
-assertion_line: 212
-info: js/module/statements/space_around_stuff/if_statement.js
-snapshot_kind: text
+info: js/module/statements/space_around_stuff/if_statement_with_space.js
 ---
 # Input
-
 ```js
 // Tests for space around stuff in if statements
 if(x > 0) {
@@ -25,9 +22,7 @@ if(x > 0) {
 } else {
     console.log("zero");
 }
-
 ```
-
 
 =============================
 
@@ -49,12 +44,12 @@ Arrow parentheses: Always
 Bracket spacing: true
 Bracket same line: false
 Attribute Position: Auto
-Space around stuff: false
+Space around stuff: true
 -----
 
 ```js
 // Tests for space around stuff in if statements
-if (x > 0) {
+if ( x > 0 ) {
 	console.log("positive");
 }
 
@@ -68,11 +63,10 @@ if (
 }
 
 // Nested if-else with spaces
-if (x > 0) {
+if ( x > 0 ) {
 	console.log("positive");
-} else if (x < 0) {
+} else if ( x < 0 ) {
 	console.log("negative");
 } else {
 	console.log("zero");
 }
-```

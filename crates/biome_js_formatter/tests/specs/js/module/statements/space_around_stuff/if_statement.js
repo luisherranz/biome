@@ -1,0 +1,18 @@
+// Tests for space around stuff in if statements
+if(x > 0) {
+    console.log("positive");
+}
+
+// Long condition that should break
+if(someVeryLongConditionThatWillDefinitelyBreak && anotherLongConditionThatHelpsBreaking && yetAnotherConditionToMakeSureItBreaks) {
+    console.log("this should break into multiple lines");
+}
+
+// Nested if-else with spaces
+if(x > 0) {
+    console.log("positive");
+} else if(x < 0) {
+    console.log("negative");
+} else {
+    console.log("zero");
+}
