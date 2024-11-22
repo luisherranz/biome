@@ -254,6 +254,7 @@ impl TryFrom<PrettierConfiguration> for biome_configuration::PartialConfiguratio
             bracket_spacing: Some(value.bracket_spacing.into()),
             jsx_quote_style: Some(jsx_quote_style),
             attribute_position: Some(AttributePosition::default()),
+            space_around_stuff: Some(false),
         };
         let js_config = biome_configuration::PartialJavascriptConfiguration {
             formatter: Some(js_formatter),
@@ -355,6 +356,7 @@ impl TryFrom<Override> for biome_configuration::OverridePattern {
             quote_style,
             quote_properties: options.quote_props.map(|quote_props| quote_props.into()),
             jsx_quote_style,
+            space_around_stuff: Some(false),
             ..Default::default()
         };
         let js_config = biome_configuration::PartialJavascriptConfiguration {
