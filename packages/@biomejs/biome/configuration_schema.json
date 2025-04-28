@@ -1269,6 +1269,7 @@
 			},
 			"additionalProperties": false
 		},
+		"DelimiterSpacing": { "type": "boolean" },
 		"DependencyAvailability": {
 			"oneOf": [
 				{
@@ -1445,6 +1446,13 @@
 					"description": "Whether to insert spaces around brackets in object literals. Defaults to true.",
 					"anyOf": [
 						{ "$ref": "#/definitions/BracketSpacing" },
+						{ "type": "null" }
+					]
+				},
+				"delimiterSpacing": {
+					"description": "Whether to force spaces directly inside all the parentheses (), square brackets [], and curly braces {}. Defaults to false.",
+					"anyOf": [
+						{ "$ref": "#/definitions/DelimiterSpacing" },
 						{ "type": "null" }
 					]
 				},
@@ -1955,6 +1963,13 @@
 						{ "type": "null" }
 					]
 				},
+				"delimiterSpacing": {
+					"description": "Whether to force spaces directly inside all the parentheses (), square brackets [], and curly braces {}. Defaults to false.",
+					"anyOf": [
+						{ "$ref": "#/definitions/DelimiterSpacing" },
+						{ "type": "null" }
+					]
+				},
 				"enabled": {
 					"description": "Control the formatter for JavaScript (and its super languages) files.",
 					"anyOf": [{ "$ref": "#/definitions/Bool" }, { "type": "null" }]
@@ -2091,6 +2106,13 @@
 					"description": "Whether to insert spaces around brackets in object literals. Defaults to true.",
 					"anyOf": [
 						{ "$ref": "#/definitions/BracketSpacing" },
+						{ "type": "null" }
+					]
+				},
+				"delimiterSpacing": {
+					"description": "Whether to insert spaces around square brackets in arrays. Defaults to false.",
+					"anyOf": [
+						{ "$ref": "#/definitions/DelimiterSpacing" },
 						{ "type": "null" }
 					]
 				},
@@ -3188,6 +3210,13 @@
 					"description": "Whether to insert spaces around brackets in object literals. Defaults to true.",
 					"anyOf": [
 						{ "$ref": "#/definitions/BracketSpacing" },
+						{ "type": "null" }
+					]
+				},
+				"delimiterSpacing": {
+					"description": "Whether to force spaces directly inside all the parentheses (), square brackets [], and curly braces {}. Defaults to false.",
+					"anyOf": [
+						{ "$ref": "#/definitions/DelimiterSpacing" },
 						{ "type": "null" }
 					]
 				},
