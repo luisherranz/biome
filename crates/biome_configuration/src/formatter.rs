@@ -64,6 +64,11 @@ pub struct FormatterConfiguration {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bracket_spacing: Option<BracketSpacing>,
 
+    /// Whether to insert spaces around delimiters in object literals, function parameters/arguments, and more. Defaults to false.
+    #[bpaf(long("delimiter-spacing"), argument("true|false"))]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delimiter_spacing: Option<BracketSpacing>,
+
     /// Whether to expand arrays and objects on multiple lines.
     /// When set to `auto`, object literals are formatted on multiple lines if the first property has a newline,
     /// and array literals are formatted on a single line if it fits in the line.
@@ -120,6 +125,10 @@ impl FormatterConfiguration {
 
     pub fn bracket_spacing_resolved(&self) -> BracketSpacing {
         self.bracket_spacing.unwrap_or_default()
+    }
+
+    pub fn delimiter_spacing_resolved(&self) -> BracketSpacing {
+        self.delimiter_spacing.unwrap_or_default()
     }
 
     pub fn expand_resolved(&self) -> Expand {

@@ -165,6 +165,9 @@ pub struct JsFormatOptions {
     /// Whether to insert spaces around brackets in object literals. Defaults to true.
     bracket_spacing: BracketSpacing,
 
+    /// Whether to insert spaces around delimiters in object literals, function parameters/arguments, and more. Defaults to false.
+    delimiter_spacing: BracketSpacing,
+
     /// Whether to hug the closing bracket of multiline HTML/JSX tags to the end of the last line, rather than being alone on the following line. Defaults to false.
     bracket_same_line: BracketSameLine,
 
@@ -193,6 +196,7 @@ impl JsFormatOptions {
             semicolons: Semicolons::default(),
             arrow_parentheses: ArrowParentheses::default(),
             bracket_spacing: BracketSpacing::default(),
+            delimiter_spacing: BracketSpacing::from(false),
             bracket_same_line: BracketSameLine::default(),
             attribute_position: AttributePosition::default(),
             expand: Expand::default(),
@@ -206,6 +210,11 @@ impl JsFormatOptions {
 
     pub fn with_bracket_spacing(mut self, bracket_spacing: BracketSpacing) -> Self {
         self.bracket_spacing = bracket_spacing;
+        self
+    }
+
+    pub fn with_delimiter_spacing(mut self, delimiter_spacing: BracketSpacing) -> Self {
+        self.delimiter_spacing = delimiter_spacing;
         self
     }
 
@@ -277,6 +286,10 @@ impl JsFormatOptions {
         self.bracket_spacing = bracket_spacing;
     }
 
+    pub fn set_delimiter_spacing(&mut self, delimiter_spacing: BracketSpacing) {
+        self.delimiter_spacing = delimiter_spacing;
+    }
+
     pub fn set_bracket_same_line(&mut self, bracket_same_line: BracketSameLine) {
         self.bracket_same_line = bracket_same_line;
     }
@@ -331,6 +344,10 @@ impl JsFormatOptions {
 
     pub fn bracket_spacing(&self) -> BracketSpacing {
         self.bracket_spacing
+    }
+
+    pub fn delimiter_spacing(&self) -> BracketSpacing {
+        self.delimiter_spacing
     }
 
     pub fn bracket_same_line(&self) -> BracketSameLine {
@@ -409,6 +426,7 @@ impl fmt::Display for JsFormatOptions {
         writeln!(f, "Semicolons: {}", self.semicolons)?;
         writeln!(f, "Arrow parentheses: {}", self.arrow_parentheses)?;
         writeln!(f, "Bracket spacing: {}", self.bracket_spacing.value())?;
+        writeln!(f, "Delimiter spacing: {}", self.delimiter_spacing.value())?;
         writeln!(f, "Bracket same line: {}", self.bracket_same_line.value())?;
         writeln!(f, "Attribute Position: {}", self.attribute_position)?;
         writeln!(f, "Expand lists: {}", self.expand)

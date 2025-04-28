@@ -155,6 +155,11 @@ pub struct OverrideFormatterConfiguration {
     #[bpaf(long("bracket-spacing"), argument("true|false"))]
     pub bracket_spacing: Option<BracketSpacing>,
 
+    /// Whether to insert spaces around delimiters in object literals, function parameters/arguments, and more. Defaults to false.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[bpaf(long("delimiter-spacing"), argument("true|false"))]
+    pub delimiter_spacing: Option<BracketSpacing>,
+
     /// Whether to expand arrays and objects on multiple lines.
     /// When set to `auto`, object literals are formatted on multiple lines if the first property has a newline,
     /// and array literals are formatted on a single line if it fits in the line.
