@@ -2,7 +2,7 @@ use crate::JsonCommentStyle;
 use crate::comments::{FormatJsonLeadingComment, JsonComments};
 use biome_deserialize_macros::{Deserializable, Merge};
 use biome_formatter::separated::TrailingSeparator;
-use biome_formatter::{BracketSpacing, Expand, IndentWidth, prelude::*};
+use biome_formatter::{BracketSpacing, DelimiterSpacing, Expand, IndentWidth, prelude::*};
 use biome_formatter::{
     CstFormatContext, FormatContext, FormatOptions, IndentStyle, LineEnding, LineWidth,
     TransformSourceMap,
@@ -68,6 +68,7 @@ pub struct JsonFormatOptions {
     trailing_commas: TrailingCommas,
     expand: Expand,
     bracket_spacing: BracketSpacing,
+    delimiter_spacing: DelimiterSpacing,
     /// The kind of file
     file_source: JsonFileSource,
 }
@@ -151,6 +152,11 @@ impl JsonFormatOptions {
         self
     }
 
+    pub fn with_delimiter_spacing(mut self, delimiter_spacing: DelimiterSpacing) -> Self {
+        self.delimiter_spacing = delimiter_spacing;
+        self
+    }
+
     pub fn set_indent_style(&mut self, indent_style: IndentStyle) {
         self.indent_style = indent_style;
     }
@@ -175,6 +181,10 @@ impl JsonFormatOptions {
         self.bracket_spacing = bracket_spacing;
     }
 
+    pub fn set_delimiter_spacing(&mut self, delimiter_spacing: DelimiterSpacing) {
+        self.delimiter_spacing = delimiter_spacing;
+    }
+
     /// Set `expand_lists`
     pub fn set_expand(&mut self, expand: Expand) {
         self.expand = expand;
@@ -182,6 +192,10 @@ impl JsonFormatOptions {
 
     pub fn bracket_spacing(&self) -> BracketSpacing {
         self.bracket_spacing
+    }
+
+    pub fn delimiter_spacing(&self) -> DelimiterSpacing {
+        self.delimiter_spacing
     }
 
     pub fn expand(&self) -> Expand {
@@ -231,6 +245,7 @@ impl fmt::Display for JsonFormatOptions {
         writeln!(f, "Trailing commas: {}", self.trailing_commas)?;
         writeln!(f, "Expand: {}", self.expand)?;
         writeln!(f, "Bracket spacing: {}", self.bracket_spacing.value())?;
+        writeln!(f, "Delimiter spacing: {}", self.delimiter_spacing.value())?;
 
         Ok(())
     }
