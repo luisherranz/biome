@@ -1,8 +1,8 @@
 use crate::bool::Bool;
 use biome_deserialize_macros::{Deserializable, Merge};
 use biome_formatter::{
-    AttributePosition, BracketSameLine, BracketSpacing, Expand, IndentStyle, IndentWidth,
-    LineEnding, LineWidth, QuoteStyle,
+    AttributePosition, BracketSameLine, BracketSpacing, DelimiterSpacing, Expand, IndentStyle,
+    IndentWidth, LineEnding, LineWidth, QuoteStyle,
 };
 use biome_js_formatter::context::{
     ArrowParentheses, QuoteProperties, Semicolons, trailing_commas::TrailingCommas,
@@ -111,7 +111,7 @@ pub struct JsFormatterConfiguration {
     /// Whether to insert spaces around delimiters in object literals, function parameters/arguments, and more. Defaults to false.
     #[bpaf(long("javascript-formatter-delimiter-spacing"), argument("true|false"))]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub delimiter_spacing: Option<BracketSpacing>,
+    pub delimiter_spacing: Option<DelimiterSpacing>,
 
     /// Whether to expand arrays and objects on multiple lines.
     /// When set to `auto`, object literals are formatted on multiple lines if the first property has a newline,

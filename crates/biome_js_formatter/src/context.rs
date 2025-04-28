@@ -4,7 +4,7 @@ use crate::comments::{FormatJsLeadingComment, JsCommentStyle, JsComments};
 use biome_deserialize_macros::{Deserializable, Merge};
 use biome_formatter::printer::PrinterOptions;
 use biome_formatter::{
-    AttributePosition, BracketSameLine, BracketSpacing, CstFormatContext, Expand, FormatContext,
+    AttributePosition, BracketSameLine, BracketSpacing, CstFormatContext, DelimiterSpacing, Expand, FormatContext,
     FormatElement, FormatOptions, IndentStyle, IndentWidth, LineEnding, LineWidth, QuoteStyle,
     TransformSourceMap,
 };
@@ -166,7 +166,7 @@ pub struct JsFormatOptions {
     bracket_spacing: BracketSpacing,
 
     /// Whether to insert spaces around delimiters in object literals, function parameters/arguments, and more. Defaults to false.
-    delimiter_spacing: BracketSpacing,
+    delimiter_spacing: DelimiterSpacing,
 
     /// Whether to hug the closing bracket of multiline HTML/JSX tags to the end of the last line, rather than being alone on the following line. Defaults to false.
     bracket_same_line: BracketSameLine,
@@ -196,7 +196,7 @@ impl JsFormatOptions {
             semicolons: Semicolons::default(),
             arrow_parentheses: ArrowParentheses::default(),
             bracket_spacing: BracketSpacing::default(),
-            delimiter_spacing: BracketSpacing::from(false),
+            delimiter_spacing: DelimiterSpacing::default(),
             bracket_same_line: BracketSameLine::default(),
             attribute_position: AttributePosition::default(),
             expand: Expand::default(),
@@ -213,7 +213,7 @@ impl JsFormatOptions {
         self
     }
 
-    pub fn with_delimiter_spacing(mut self, delimiter_spacing: BracketSpacing) -> Self {
+    pub fn with_delimiter_spacing(mut self, delimiter_spacing: DelimiterSpacing) -> Self {
         self.delimiter_spacing = delimiter_spacing;
         self
     }
@@ -286,7 +286,7 @@ impl JsFormatOptions {
         self.bracket_spacing = bracket_spacing;
     }
 
-    pub fn set_delimiter_spacing(&mut self, delimiter_spacing: BracketSpacing) {
+    pub fn set_delimiter_spacing(&mut self, delimiter_spacing: DelimiterSpacing) {
         self.delimiter_spacing = delimiter_spacing;
     }
 
@@ -346,7 +346,7 @@ impl JsFormatOptions {
         self.bracket_spacing
     }
 
-    pub fn delimiter_spacing(&self) -> BracketSpacing {
+    pub fn delimiter_spacing(&self) -> DelimiterSpacing {
         self.delimiter_spacing
     }
 

@@ -630,6 +630,62 @@ impl FromStr for BracketSpacing {
     }
 }
 
+/// Print spaces between delimiters. `false` by default.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Merge, Deserializable)]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "camelCase")
+)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+pub struct DelimiterSpacing(bool);
+
+impl DelimiterSpacing {
+    /// Return the boolean value for this [DelimiterSpacing]
+    pub fn value(&self) -> bool {
+        self.0
+    }
+}
+
+impl Default for DelimiterSpacing {
+    fn default() -> Self {
+        Self(false)
+    }
+}
+
+impl From<bool> for DelimiterSpacing {
+    fn from(value: bool) -> Self {
+        Self(value)
+    }
+}
+
+impl std::fmt::Display for DelimiterSpacing {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::write!(f, "{:?}", self.value())
+    }
+}
+
+impl biome_console::fmt::Display for DelimiterSpacing {
+    fn fmt(&self, fmt: &mut biome_console::fmt::Formatter) -> std::io::Result<()> {
+        fmt.write_str(&self.0.to_string())
+    }
+}
+
+impl FromStr for DelimiterSpacing {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let value = bool::from_str(s);
+
+        match value {
+            Ok(value) => Ok(Self(value)),
+            Err(_) => Err(
+                "Value not supported for DelimiterSpacing. Supported values are 'true' and 'false'.",
+            ),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, Deserializable, Eq, Hash, Merge, PartialEq)]
 #[cfg_attr(
     feature = "serde",

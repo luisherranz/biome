@@ -33,7 +33,7 @@ use biome_configuration::javascript::{
 };
 use biome_diagnostics::Applicability;
 use biome_formatter::{
-    AttributePosition, BracketSameLine, BracketSpacing, Expand, FormatError, IndentStyle,
+    AttributePosition, BracketSameLine, BracketSpacing, DelimiterSpacing, Expand, FormatError, IndentStyle,
     IndentWidth, LineEnding, LineWidth, Printed, QuoteStyle,
 };
 use biome_fs::BiomePath;
@@ -68,7 +68,7 @@ pub struct JsFormatterSettings {
     pub semicolons: Option<Semicolons>,
     pub arrow_parentheses: Option<ArrowParentheses>,
     pub bracket_spacing: Option<BracketSpacing>,
-    pub delimiter_spacing: Option<BracketSpacing>,
+    pub delimiter_spacing: Option<DelimiterSpacing>,
     pub bracket_same_line: Option<BracketSameLine>,
     pub line_ending: Option<LineEnding>,
     pub line_width: Option<LineWidth>,
@@ -238,7 +238,7 @@ impl ServiceLanguage for JsLanguage {
         .with_delimiter_spacing(
             language
                 .and_then(|l| l.delimiter_spacing)
-                .unwrap_or(BracketSpacing::from(false)),
+                .unwrap_or_default(),
         )
         .with_bracket_same_line(
             language

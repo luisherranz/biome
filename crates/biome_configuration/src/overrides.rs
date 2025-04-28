@@ -8,7 +8,7 @@ use crate::{
 };
 use biome_deserialize_macros::{Deserializable, Merge};
 use biome_formatter::{
-    AttributePosition, BracketSameLine, BracketSpacing, Expand, IndentStyle, IndentWidth,
+    AttributePosition, BracketSameLine, BracketSpacing, DelimiterSpacing, Expand, IndentStyle, IndentWidth,
     LineEnding, LineWidth,
 };
 use bpaf::Bpaf;
@@ -158,7 +158,7 @@ pub struct OverrideFormatterConfiguration {
     /// Whether to insert spaces around delimiters in object literals, function parameters/arguments, and more. Defaults to false.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[bpaf(long("delimiter-spacing"), argument("true|false"))]
-    pub delimiter_spacing: Option<BracketSpacing>,
+    pub delimiter_spacing: Option<DelimiterSpacing>,
 
     /// Whether to expand arrays and objects on multiple lines.
     /// When set to `auto`, object literals are formatted on multiple lines if the first property has a newline,
