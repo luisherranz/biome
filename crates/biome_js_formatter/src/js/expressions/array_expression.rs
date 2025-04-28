@@ -47,12 +47,13 @@ impl FormatNodeRule<JsArrayExpression> for FormatJsArrayExpression {
             let should_expand = (!self.options.is_force_flat_mode && should_break(&elements)?)
                 || f.options().expand() == Expand::Always;
             let elements = elements.format().with_options(Some(group_id));
+            let should_insert_space_inside_brackets = f.options().delimiter_spacing().value();
 
             write!(
                 f,
                 [
                     l_brack_token.format(),
-                    group(&soft_block_indent(&elements))
+                    group(&soft_block_indent_with_maybe_space(&elements, should_insert_space_inside_brackets))
                         .with_group_id(Some(group_id))
                         .should_expand(should_expand),
                     r_brack_token.format()
