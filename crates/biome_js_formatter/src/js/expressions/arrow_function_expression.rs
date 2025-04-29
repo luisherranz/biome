@@ -74,6 +74,9 @@ impl FormatNodeRule<JsArrowFunctionExpression> for FormatJsArrowFunctionExpressi
                     mode: self.options.body_cache_mode,
                 };
 
+                let should_insert_space_inside_parenthesis =
+                    f.options().delimiter_spacing().value();
+
                 // With arrays, arrow selfs and objects, they have a natural line breaking strategy:
                 // Arrays and objects become blocks:
                 //
@@ -110,7 +113,10 @@ impl FormatNodeRule<JsArrowFunctionExpression> for FormatJsArrowFunctionExpressi
                                     group(&format_args![indent(&format_args![
                                         hard_line_break(),
                                         text("("),
-                                        soft_block_indent(&format_body),
+                                        soft_block_indent_with_maybe_space(
+                                            &format_body,
+                                            should_insert_space_inside_parenthesis
+                                        ),
                                         text(")")
                                     ]),])
                                 ])]
@@ -123,7 +129,10 @@ impl FormatNodeRule<JsArrowFunctionExpression> for FormatJsArrowFunctionExpressi
                                 group(&format_args![
                                     space(),
                                     text("("),
-                                    soft_block_indent(&format_body),
+                                    soft_block_indent_with_maybe_space(
+                                        &format_body,
+                                        should_insert_space_inside_parenthesis
+                                    ),
                                     text(")")
                                 ])
                             ])]
@@ -155,13 +164,29 @@ impl FormatNodeRule<JsArrowFunctionExpression> for FormatJsArrowFunctionExpressi
                                 group(&format_args![
                                     soft_line_indent_or_hard_space(&format_with(|f| {
                                         if should_add_parens {
-                                            write!(f, [if_group_fits_on_line(&text("("))])?;
+                                            write!(
+                                                f,
+                                                [if_group_fits_on_line(&format_args!(
+                                                    text("("),
+                                                    maybe_space(
+                                                        should_insert_space_inside_parenthesis
+                                                    )
+                                                ))]
+                                            )?;
                                         }
 
                                         write!(f, [format_body])?;
 
                                         if should_add_parens {
-                                            write!(f, [if_group_fits_on_line(&text(")"))])?;
+                                            write!(
+                                                f,
+                                                [if_group_fits_on_line(&format_args!(
+                                                    maybe_space(
+                                                        should_insert_space_inside_parenthesis
+                                                    ),
+                                                    text(")")
+                                                ))]
+                                            )?;
                                         }
 
                                         Ok(())
