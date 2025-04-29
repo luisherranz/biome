@@ -172,12 +172,16 @@ impl Format<JsFormatContext> for FormatTemplateElement {
             }
         });
 
+        let should_insert_space_inside_curly_braces = f.options().delimiter_spacing().value();
+
         write!(
             f,
             [group(&format_args![
                 self.element.dollar_curly_token().format(),
+                maybe_space(should_insert_space_inside_curly_braces),
                 format_indented,
                 line_suffix_boundary(),
+                maybe_space(should_insert_space_inside_curly_braces),
                 self.element.r_curly_token().format()
             ])]
         )
