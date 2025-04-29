@@ -35,6 +35,8 @@ impl FormatNodeRule<JsCatchDeclaration> for FormatJsCatchDeclaration {
             .iter()
             .any(|comment| comment.lines_before() > 0 || comment.kind().is_line());
 
+        let should_insert_space_inside_parenthesis = f.options().delimiter_spacing().value();
+
         if leading_comment_with_break || trailing_comment_with_break {
             write!(
                 f,
@@ -49,7 +51,9 @@ impl FormatNodeRule<JsCatchDeclaration> for FormatJsCatchDeclaration {
                 f,
                 [
                     l_paren_token.format(),
+                    maybe_space(should_insert_space_inside_parenthesis),
                     binding.format(),
+                    maybe_space(should_insert_space_inside_parenthesis),
                     type_annotation.format(),
                     r_paren_token.format()
                 ]

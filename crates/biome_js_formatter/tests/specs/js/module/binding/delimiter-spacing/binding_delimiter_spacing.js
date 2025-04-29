@@ -13,3 +13,8 @@ async function* foo(foo) {}
 ([foo]) => {}
 ({ looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong }) => {}
 async (foo) => {}
+
+try {} catch(foo) {}
+try {} catch({ foo }) {}
+try {} catch([foo]) {}
+try {} catch(loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong) {}

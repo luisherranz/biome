@@ -21,6 +21,10 @@ async function* foo(foo) {}
 ({ looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong }) => {}
 async (foo) => {}
 
+try {} catch(foo) {}
+try {} catch({ foo }) {}
+try {} catch([foo]) {}
+try {} catch(loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong) {}
 ```
 
 
@@ -68,11 +72,21 @@ async function* foo(foo) {}
 	looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong,
 }) => {};
 async (foo) => {};
+
+try {
+} catch (foo) {}
+try {
+} catch ({ foo }) {}
+try {
+} catch ([foo]) {}
+try {
+} catch (loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong) {}
 ```
 
 # Lines exceeding max width of 80 characters
 ```
    17: 	looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong,
+   28: } catch (loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong) {}
 ```
 
 ## Output 1
@@ -115,9 +129,19 @@ async function* foo( foo ) {}
 	looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong,
 } ) => {};
 async ( foo ) => {};
+
+try {
+} catch ( foo ) {}
+try {
+} catch ( { foo } ) {}
+try {
+} catch ( [ foo ] ) {}
+try {
+} catch ( loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong ) {}
 ```
 
 # Lines exceeding max width of 80 characters
 ```
    17: 	looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong,
+   28: } catch ( loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong ) {}
 ```
