@@ -20,6 +20,8 @@ impl FormatNodeRule<JsSetterClassMember> for FormatJsSetterClassMember {
             body,
         } = node.as_fields();
 
+        let should_insert_space_inside_parenthesis = f.options().delimiter_spacing().value();
+
         write![
             f,
             [
@@ -29,7 +31,9 @@ impl FormatNodeRule<JsSetterClassMember> for FormatJsSetterClassMember {
                 space(),
                 name.format(),
                 l_paren_token.format(),
+                maybe_space(should_insert_space_inside_parenthesis),
                 parameter.format(),
+                maybe_space(should_insert_space_inside_parenthesis),
                 comma_token.format(),
                 r_paren_token.format(),
                 space(),

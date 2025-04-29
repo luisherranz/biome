@@ -21,16 +21,6 @@ async function* foo(foo) {}
 ({ looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong }) => {}
 async (foo) => {}
 
-class Foo {
-    foo() {}
-    foo(foo) {}
-    foo({ foo }) {}
-    foo([foo]) {}
-    foo({ loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong }) {}
-    async foo(foo) {}
-    async *foo(foo) {}
-    *foo(foo) {}
-}
 ```
 
 
@@ -78,19 +68,6 @@ async function* foo(foo) {}
 	looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong,
 }) => {};
 async (foo) => {};
-
-class Foo {
-	foo() {}
-	foo(foo) {}
-	foo({ foo }) {}
-	foo([foo]) {}
-	foo({
-		loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong,
-	}) {}
-	async foo(foo) {}
-	async *foo(foo) {}
-	*foo(foo) {}
-}
 ```
 
 # Lines exceeding max width of 80 characters
@@ -138,19 +115,6 @@ async function* foo( foo ) {}
 	looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong,
 } ) => {};
 async ( foo ) => {};
-
-class Foo {
-	foo() {}
-	foo( foo ) {}
-	foo( { foo } ) {}
-	foo( [ foo ] ) {}
-	foo( {
-		loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong,
-	} ) {}
-	async foo( foo ) {}
-	async *foo( foo ) {}
-	*foo( foo ) {}
-}
 ```
 
 # Lines exceeding max width of 80 characters

@@ -11,6 +11,7 @@ interface B {
 class C {
     constructor(foo: unknown) {}
     method(@param foo) {}
+    set foo(foo: unknown) {}
 }
 class D {
     constructor(private foo: unknown) {}
