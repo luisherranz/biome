@@ -5,11 +5,32 @@ info: js/module/binding/delimiter-spacing/binding_delimiter_spacing.js
 # Input
 
 ```js
-function a({ p }) {}
-function b([p]) {}
-function c({ loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong }) {}
-({ p }) => {}
-([p]) => {}
+function foo() {}
+function foo(foo) {}
+function foo({ foo }) {}
+function foo([foo]) {}
+function foo({ loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong }) {}
+async function foo(foo) {}
+function* foo(foo) {}
+async function* foo(foo) {}
+
+() => {}
+(foo) => {}
+({ foo }) => {}
+([foo]) => {}
+({ looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong }) => {}
+async (foo) => {}
+
+class Foo {
+    foo() {}
+    foo(foo) {}
+    foo({ foo }) {}
+    foo([foo]) {}
+    foo({ loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong }) {}
+    async foo(foo) {}
+    async *foo(foo) {}
+    *foo(foo) {}
+}
 ```
 
 
@@ -38,13 +59,43 @@ Expand lists: Auto
 -----
 
 ```js
-function a({ p }) {}
-function b([p]) {}
-function c({
+function foo() {}
+function foo(foo) {}
+function foo({ foo }) {}
+function foo([foo]) {}
+function foo({
 	loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong,
 }) {}
-({ p }) => {};
-([p]) => {};
+async function foo(foo) {}
+function* foo(foo) {}
+async function* foo(foo) {}
+
+() => {};
+(foo) => {};
+({ foo }) => {};
+([foo]) => {};
+({
+	looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong,
+}) => {};
+async (foo) => {};
+
+class Foo {
+	foo() {}
+	foo(foo) {}
+	foo({ foo }) {}
+	foo([foo]) {}
+	foo({
+		loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong,
+	}) {}
+	async foo(foo) {}
+	async *foo(foo) {}
+	*foo(foo) {}
+}
+```
+
+# Lines exceeding max width of 80 characters
+```
+   17: 	looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong,
 ```
 
 ## Output 1
@@ -68,11 +119,41 @@ Expand lists: Auto
 -----
 
 ```js
-function a( { p } ) {}
-function b( [ p ] ) {}
-function c( {
+function foo() {}
+function foo( foo ) {}
+function foo( { foo } ) {}
+function foo( [ foo ] ) {}
+function foo( {
 	loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong,
 } ) {}
-( { p } ) => {};
-( [ p ] ) => {};
+async function foo( foo ) {}
+function* foo( foo ) {}
+async function* foo( foo ) {}
+
+() => {};
+( foo ) => {};
+( { foo } ) => {};
+( [ foo ] ) => {};
+( {
+	looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong,
+} ) => {};
+async ( foo ) => {};
+
+class Foo {
+	foo() {}
+	foo( foo ) {}
+	foo( { foo } ) {}
+	foo( [ foo ] ) {}
+	foo( {
+		loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong,
+	} ) {}
+	async foo( foo ) {}
+	async *foo( foo ) {}
+	*foo( foo ) {}
+}
+```
+
+# Lines exceeding max width of 80 characters
+```
+   17: 	looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong,
 ```

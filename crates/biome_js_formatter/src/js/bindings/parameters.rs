@@ -98,10 +98,10 @@ impl Format<JsFormatContext> for FormatAnyJsParameters {
 
                 write!(
                     f,
-                    [soft_block_indent(&FormatJsAnyParameterList::with_layout(
-                        &list,
-                        ParameterLayout::Default,
-                    ))]
+                    [soft_block_indent_with_maybe_space(
+                        &FormatJsAnyParameterList::with_layout(&list, ParameterLayout::Default,),
+                        should_insert_space_inside_parenthesis
+                    )]
                 )?;
 
                 if !parentheses_not_needed {
