@@ -52,6 +52,7 @@ impl Format<JsFormatContext> for FormatAnyJsParameters {
 
         let l_paren_token = self.l_paren_token()?;
         let r_paren_token = self.r_paren_token()?;
+        let should_insert_space_inside_parenthesis = f.options().delimiter_spacing().value();
 
         match layout {
             ParameterLayout::NoParameters => {
@@ -73,10 +74,11 @@ impl Format<JsFormatContext> for FormatAnyJsParameters {
 
                 write!(
                     f,
-                    [FormatJsAnyParameterList::with_layout(
-                        &list,
-                        ParameterLayout::Hug
-                    )]
+                    [
+                        maybe_space(should_insert_space_inside_parenthesis),
+                        FormatJsAnyParameterList::with_layout(&list, ParameterLayout::Hug),
+                        maybe_space(should_insert_space_inside_parenthesis)
+                    ]
                 )?;
 
                 if !parentheses_not_needed {

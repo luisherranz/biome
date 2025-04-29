@@ -1,21 +1,15 @@
 ---
 source: crates/biome_formatter_test/src/snapshot_builder.rs
-info: js/module/array/delimiter-spacing/array_delimiter_spacing.js
+info: js/module/binding/delimiter-spacing/binding_delimiter_spacing.js
 ---
 # Input
 
 ```js
-let a = [];
-let b = [1];
-let c = [[1]];
-let d = [...a];
-let e = [,,1,];
-let f = [, /* this */];
-function g([h, /*this*/,]) {}
-let [i = "i"] = j;
-([k]) => {};
-let [l, m] = n;
-let [o, ...p] = q;
+function a({ p }) {}
+function b([p]) {}
+function c({ loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong }) {}
+({ p }) => {}
+([p]) => {}
 ```
 
 
@@ -44,17 +38,13 @@ Expand lists: Auto
 -----
 
 ```js
-let a = [];
-let b = [1];
-let c = [[1]];
-let d = [...a];
-let e = [, , 1];
-let f = [/* this */ ,];
-function g([h, /*this*/ ,]) {}
-let [i = "i"] = j;
-([k]) => {};
-let [l, m] = n;
-let [o, ...p] = q;
+function a({ p }) {}
+function b([p]) {}
+function c({
+	loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong,
+}) {}
+({ p }) => {};
+([p]) => {};
 ```
 
 ## Output 1
@@ -78,15 +68,11 @@ Expand lists: Auto
 -----
 
 ```js
-let a = [];
-let b = [ 1 ];
-let c = [ [ 1 ] ];
-let d = [ ...a ];
-let e = [ , , 1 ];
-let f = [ /* this */ , ];
-function g( [ h, /*this*/ , ] ) {}
-let [ i = "i" ] = j;
-( [ k ] ) => {};
-let [ l, m ] = n;
-let [ o, ...p ] = q;
+function a( { p } ) {}
+function b( [ p ] ) {}
+function c( {
+	loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong,
+} ) {}
+( { p } ) => {};
+( [ p ] ) => {};
 ```
