@@ -17,13 +17,16 @@ impl FormatNodeRule<JsArrayBindingPattern> for FormatJsArrayBindingPattern {
 
         write!(f, [l_brack_token.format(),])?;
 
+        let should_insert_space_inside_brackets = f.options().delimiter_spacing().value();
+
+
         if elements.is_empty() {
             write!(
                 f,
                 [format_dangling_comments(node.syntax()).with_block_indent()]
             )?;
         } else {
-            write!(f, [group(&soft_block_indent(&elements.format()))])?;
+            write!(f, [group(&soft_block_indent_with_maybe_space(&elements.format(), should_insert_space_inside_brackets))])?;
         }
 
         write!(f, [r_brack_token.format()])
