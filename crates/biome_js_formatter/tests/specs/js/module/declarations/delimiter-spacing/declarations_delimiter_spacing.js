@@ -17,3 +17,5 @@ let looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo
 dsa`).ewqeqewqweqweqweqweqweqweqw;
 let loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong3 = this(`123123
  dsa`)[dsadsadsadsadsadsadsa]().ewqoewqoeiowqieopwqie
+
+let foo = bar({ baz })();

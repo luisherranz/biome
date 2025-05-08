@@ -7,3 +7,7 @@ it('mocks regexp instances', () => {
         // () => moduleMocker.generateFromMetadata(moduleMocker.getMetadata(/a/)),
     ).not.toThrow();
 });
+
+expect(() => asyncRequest({ url: "/test-endpoint" }));
+
+foo(({ a, b }) => {});

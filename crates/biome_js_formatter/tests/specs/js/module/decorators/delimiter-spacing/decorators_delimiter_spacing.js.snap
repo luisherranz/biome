@@ -1,17 +1,13 @@
 ---
 source: crates/biome_formatter_test/src/snapshot_builder.rs
-info: js/module/expression/delimiter-spacing/expression_delimiter_spacing.js
+info: js/module/decorators/delimiter-spacing/decorators_delimiter_spacing.js
 ---
 # Input
 
 ```js
-() => (1, 2);
-() => (1, /* this */ 2, 3);
-() => true ? 1 : 2;
-foo(p, () => {
-    return true;
-}, []);
-foo.bar(this.baz, (p) => p());
+class Foo {
+  @deco([foo, bar]) prop = value;
+}
 ```
 
 
@@ -40,13 +36,9 @@ Expand lists: Auto
 -----
 
 ```js
-() => (1, 2);
-() => (1, /* this */ 2, 3);
-() => (true ? 1 : 2);
-foo(p, () => {
-	return true;
-}, []);
-foo.bar(this.baz, (p) => p());
+class Foo {
+	@deco([foo, bar]) prop = value;
+}
 ```
 
 ## Output 1
@@ -70,11 +62,7 @@ Expand lists: Auto
 -----
 
 ```js
-() => ( 1, 2 );
-() => ( 1, /* this */ 2, 3 );
-() => ( true ? 1 : 2 );
-foo( p, () => {
-	return true;
-}, [] );
-foo.bar( this.baz, ( p ) => p() );
+class Foo {
+	@deco( [ foo, bar ] ) prop = value;
+}
 ```

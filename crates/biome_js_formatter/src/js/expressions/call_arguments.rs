@@ -450,6 +450,7 @@ fn write_grouped_arguments(
 
     // Write the most flat variant with the first or last argument grouped.
     let most_flat = {
+        let should_insert_space_inside_parenthesis = f.options().delimiter_spacing().value();
         let snapshot = f.state_snapshot();
         let mut buffer = VecBuffer::new(f.state_mut());
         buffer.write_element(FormatElement::Tag(Tag::StartEntry))?;
@@ -458,11 +459,14 @@ fn write_grouped_arguments(
             buffer,
             [
                 l_paren,
-                format_with(|f| {
-                    f.join_with(soft_line_break_or_space())
-                        .entries(grouped.iter())
-                        .finish()
-                }),
+                soft_block_indent_with_maybe_space(
+                    &format_with(|f| {
+                        f.join_with(soft_line_break_or_space())
+                            .entries(grouped.iter())
+                            .finish()
+                    }),
+                    should_insert_space_inside_parenthesis
+                ),
                 r_paren
             ]
         );

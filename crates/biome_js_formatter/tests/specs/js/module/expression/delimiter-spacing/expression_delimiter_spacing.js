@@ -4,3 +4,4 @@
 foo(p, () => {
     return true;
 }, []);
+foo.bar(this.baz, (p) => p());

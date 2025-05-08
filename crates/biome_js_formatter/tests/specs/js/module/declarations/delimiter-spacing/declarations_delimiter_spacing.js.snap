@@ -24,6 +24,8 @@ let looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo
 dsa`).ewqeqewqweqweqweqweqweqweqw;
 let loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong3 = this(`123123
  dsa`)[dsadsadsadsadsadsadsa]().ewqoewqoeiowqieopwqie
+
+let foo = bar({ baz })();
 ```
 
 
@@ -75,6 +77,8 @@ dsa`).ewqeqewqweqweqweqweqweqweqw;
 let loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong3 =
 	this(`123123
  dsa`)[dsadsadsadsadsadsadsa]().ewqoewqoeiowqieopwqie;
+
+let foo = bar({ baz })();
 ```
 
 # Lines exceeding max width of 80 characters
@@ -128,6 +132,8 @@ dsa` ).ewqeqewqweqweqweqweqweqweqw;
 let loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong3 =
 	this( `123123
  dsa` )[dsadsadsadsadsadsadsa]().ewqoewqoeiowqieopwqie;
+
+let foo = bar( { baz } )();
 ```
 
 # Lines exceeding max width of 80 characters
