@@ -1,0 +1,95 @@
+---
+source: crates/biome_formatter_test/src/snapshot_builder.rs
+info: jsx/delimiter-spacing/delimiter_spacing.jsx
+---
+# Input
+
+```jsx
+<Foo
+    foo={foo(p, {
+        foo,
+        bar,
+        baz
+    })}
+    bar={(p) => {
+        foo((p) => ({
+            ...p,
+        }));
+    }}
+/>;
+```
+
+
+=============================
+
+# Outputs
+
+## Output 1
+
+-----
+Indent style: Tab
+Indent width: 2
+Line ending: LF
+Line width: 80
+Quote style: Double Quotes
+JSX quote style: Double Quotes
+Quote properties: As needed
+Trailing commas: All
+Semicolons: Always
+Arrow parentheses: Always
+Bracket spacing: true
+Delimiter spacing: false
+Bracket same line: false
+Attribute Position: Auto
+Expand lists: Auto
+-----
+
+```jsx
+<Foo
+	foo={foo(p, {
+		foo,
+		bar,
+		baz,
+	})}
+	bar={(p) => {
+		foo((p) => ({
+			...p,
+		}));
+	}}
+/>;
+```
+
+## Output 1
+
+-----
+Indent style: Tab
+Indent width: 2
+Line ending: LF
+Line width: 80
+Quote style: Double Quotes
+JSX quote style: Double Quotes
+Quote properties: As needed
+Trailing commas: All
+Semicolons: Always
+Arrow parentheses: Always
+Bracket spacing: true
+Delimiter spacing: true
+Bracket same line: false
+Attribute Position: Auto
+Expand lists: Auto
+-----
+
+```jsx
+<Foo
+	foo={foo( p, {
+		foo,
+		bar,
+		baz,
+	} )}
+	bar={( p ) => {
+		foo( ( p ) => ({
+			...p,
+		}) );
+	}}
+/>;
+```

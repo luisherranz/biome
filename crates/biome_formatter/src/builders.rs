@@ -189,6 +189,15 @@ pub const fn soft_line_break_or_space() -> Line {
     Line::new(LineMode::SoftOrSpace)
 }
 
+#[inline]
+pub fn maybe_soft_line_break_or_space(should_insert: bool) -> Option<Line> {
+    if should_insert {
+        Some(soft_line_break_or_space())
+    } else {
+        None
+    }
+}
+
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct Line {
     mode: LineMode,

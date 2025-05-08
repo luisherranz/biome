@@ -496,6 +496,7 @@ fn write_grouped_arguments(
 
     // Write the second variant that forces the group of the first/last argument to expand.
     let middle_variant = {
+        let should_insert_space_inside_parenthesis = f.options().delimiter_spacing().value();
         let mut buffer = VecBuffer::new(f.state_mut());
 
         buffer.write_element(FormatElement::Tag(Tag::StartEntry))?;
@@ -504,6 +505,7 @@ fn write_grouped_arguments(
             buffer,
             [
                 l_paren,
+                maybe_soft_line_break_or_space(true),
                 format_with(|f| {
                     let mut joiner = f.join_with(soft_line_break_or_space());
 
@@ -521,6 +523,7 @@ fn write_grouped_arguments(
                         }
                     }
                 }),
+                maybe_soft_line_break_or_space(true),
                 r_paren
             ]
         )?;
