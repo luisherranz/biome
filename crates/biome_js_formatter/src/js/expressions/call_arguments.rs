@@ -66,6 +66,8 @@ impl FormatNodeRule<JsCallArguments> for FormatJsCallArguments {
             )
         };
 
+        let should_insert_space_inside_parenthesis = f.options().delimiter_spacing().value();
+
         if is_commonjs_or_amd_call?
             || is_multiline_template_only_args(node)
             || is_react_hook_with_deps_array(node, f.comments())
@@ -75,6 +77,7 @@ impl FormatNodeRule<JsCallArguments> for FormatJsCallArguments {
                 f,
                 [
                     l_paren_token.format(),
+                    maybe_space(should_insert_space_inside_parenthesis),
                     format_with(|f| {
                         f.join_with(space())
                             .entries(
@@ -83,6 +86,7 @@ impl FormatNodeRule<JsCallArguments> for FormatJsCallArguments {
                             )
                             .finish()
                     }),
+                    maybe_space(should_insert_space_inside_parenthesis),
                     r_paren_token.format()
                 ]
             );

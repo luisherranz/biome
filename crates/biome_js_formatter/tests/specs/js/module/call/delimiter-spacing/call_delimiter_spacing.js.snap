@@ -1,16 +1,19 @@
 ---
 source: crates/biome_formatter_test/src/snapshot_builder.rs
-info: js/module/expression/delimiter-spacing/expression_delimiter_spacing.js
+info: js/module/call/delimiter-spacing/call_delimiter_spacing.js
 ---
 # Input
 
 ```js
-() => (1, 2);
-() => (1, /* this */ 2, 3);
-() => true ? 1 : 2;
-foo(p, () => {
-    return true;
-}, []);
+foo(() => {
+    foo
+  },
+  []
+);
+
+foo(() => {
+    foo;
+}, [Math.floor(1 + 2)]);
 ```
 
 
@@ -39,12 +42,13 @@ Expand lists: Auto
 -----
 
 ```js
-() => (1, 2);
-() => (1, /* this */ 2, 3);
-() => (true ? 1 : 2);
-foo(p, () => {
-	return true;
+foo(() => {
+	foo;
 }, []);
+
+foo(() => {
+	foo;
+}, [Math.floor(1 + 2)]);
 ```
 
 ## Output 1
@@ -68,10 +72,11 @@ Expand lists: Auto
 -----
 
 ```js
-() => ( 1, 2 );
-() => ( 1, /* this */ 2, 3 );
-() => ( true ? 1 : 2 );
-foo( p, () => {
-	return true;
+foo( () => {
+	foo;
 }, [] );
+
+foo( () => {
+	foo;
+}, [ Math.floor(1 + 2) ] );
 ```
