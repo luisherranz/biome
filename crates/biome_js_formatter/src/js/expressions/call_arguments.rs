@@ -505,7 +505,7 @@ fn write_grouped_arguments(
             buffer,
             [
                 l_paren,
-                maybe_soft_line_break_or_space(true),
+                maybe_soft_line_break_or_space(should_insert_space_inside_parenthesis),
                 format_with(|f| {
                     let mut joiner = f.join_with(soft_line_break_or_space());
 
@@ -523,7 +523,7 @@ fn write_grouped_arguments(
                         }
                     }
                 }),
-                maybe_soft_line_break_or_space(true),
+                maybe_soft_line_break_or_space(should_insert_space_inside_parenthesis),
                 r_paren
             ]
         )?;
