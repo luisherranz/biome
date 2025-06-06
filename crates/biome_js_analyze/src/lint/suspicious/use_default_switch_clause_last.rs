@@ -76,7 +76,7 @@ declare_lint_rule! {
         language: "js",
         sources: &[RuleSource::Eslint("default-case-last")],
         recommended: true,
-        severity: Severity::Error,
+        severity: Severity::Warning,
     }
 }
 
@@ -88,11 +88,10 @@ impl Rule for UseDefaultSwitchClauseLast {
 
     fn run(ctx: &RuleContext<Self>) -> Self::Signals {
         let default_clause = ctx.query();
-        let next_case = default_clause
+        default_clause
             .syntax()
             .siblings(Direction::Next)
-            .find_map(JsCaseClause::cast);
-        next_case
+            .find_map(JsCaseClause::cast)
     }
 
     fn diagnostic(ctx: &RuleContext<Self>, next_case: &Self::State) -> Option<RuleDiagnostic> {

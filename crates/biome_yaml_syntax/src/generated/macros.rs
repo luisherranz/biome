@@ -56,6 +56,10 @@ macro_rules! map_syntax_node {
                     let $pattern = unsafe { $crate::YamlBlockMapping::new_unchecked(node) };
                     $body
                 }
+                $crate::YamlSyntaxKind::YAML_BLOCK_SCALAR => {
+                    let $pattern = unsafe { $crate::YamlBlockScalar::new_unchecked(node) };
+                    $body
+                }
                 $crate::YamlSyntaxKind::YAML_BLOCK_SEQUENCE => {
                     let $pattern = unsafe { $crate::YamlBlockSequence::new_unchecked(node) };
                     $body
@@ -82,6 +86,10 @@ macro_rules! map_syntax_node {
                 }
                 $crate::YamlSyntaxKind::YAML_DOUBLE_QUOTED_SCALAR => {
                     let $pattern = unsafe { $crate::YamlDoubleQuotedScalar::new_unchecked(node) };
+                    $body
+                }
+                $crate::YamlSyntaxKind::YAML_FLOW_IN_BLOCK_NODE => {
+                    let $pattern = unsafe { $crate::YamlFlowInBlockNode::new_unchecked(node) };
                     $body
                 }
                 $crate::YamlSyntaxKind::YAML_FLOW_JSON_NODE => {
@@ -120,8 +128,13 @@ macro_rules! map_syntax_node {
                     let $pattern = unsafe { $crate::YamlPlainScalar::new_unchecked(node) };
                     $body
                 }
-                $crate::YamlSyntaxKind::YAML_PROPERTY_LIST => {
-                    let $pattern = unsafe { $crate::YamlPropertyList::new_unchecked(node) };
+                $crate::YamlSyntaxKind::YAML_PROPERTIES_ANCHOR_FIRST => {
+                    let $pattern =
+                        unsafe { $crate::YamlPropertiesAnchorFirst::new_unchecked(node) };
+                    $body
+                }
+                $crate::YamlSyntaxKind::YAML_PROPERTIES_TAG_FIRST => {
+                    let $pattern = unsafe { $crate::YamlPropertiesTagFirst::new_unchecked(node) };
                     $body
                 }
                 $crate::YamlSyntaxKind::YAML_ROOT => {
@@ -140,8 +153,12 @@ macro_rules! map_syntax_node {
                     let $pattern = unsafe { $crate::YamlBogus::new_unchecked(node) };
                     $body
                 }
-                $crate::YamlSyntaxKind::YAML_BOGUS_NODE => {
-                    let $pattern = unsafe { $crate::YamlBogusNode::new_unchecked(node) };
+                $crate::YamlSyntaxKind::YAML_BOGUS_BLOCK_MAP_ENTRY => {
+                    let $pattern = unsafe { $crate::YamlBogusBlockMapEntry::new_unchecked(node) };
+                    $body
+                }
+                $crate::YamlSyntaxKind::YAML_BOGUS_BLOCK_NODE => {
+                    let $pattern = unsafe { $crate::YamlBogusBlockNode::new_unchecked(node) };
                     $body
                 }
                 $crate::YamlSyntaxKind::YAML_BLOCK_MAP_ENTRY_LIST => {

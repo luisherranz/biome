@@ -47,15 +47,19 @@ use biome_js_formatter::format_node;
 use biome_js_parser::JsParserOptions;
 use biome_js_semantic::{SemanticModelOptions, semantic_model};
 use biome_js_syntax::{
-    AnyJsRoot, JsFileSource, JsLanguage, JsSyntaxNode, LanguageVariant, TextRange, TextSize,
+    AnyJsRoot, JsClassDeclaration, JsClassExpression, JsFileSource, JsFunctionDeclaration,
+    JsLanguage, JsSyntaxNode, JsVariableDeclarator, LanguageVariant, TextRange, TextSize,
     TokenAtOffset,
 };
+use biome_js_type_info::{GlobalsResolver, TypeData, TypeResolver};
+use biome_module_graph::ModuleGraph;
 use biome_parser::AnyParse;
-use biome_rowan::{AstNode, BatchMutationExt, Direction, NodeCache};
+use biome_rowan::{AstNode, BatchMutationExt, Direction, NodeCache, WalkEvent};
 use camino::Utf8Path;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::fmt::Debug;
+use std::sync::Arc;
 use tracing::{debug, debug_span, error, trace_span};
 
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
@@ -488,6 +492,9 @@ impl ExtensionHandler for JsFileHandler {
                 debug_syntax_tree: Some(debug_syntax_tree),
                 debug_control_flow: Some(debug_control_flow),
                 debug_formatter_ir: Some(debug_formatter_ir),
+                debug_type_info: Some(debug_type_info),
+                debug_registered_types: Some(debug_registered_types),
+                debug_semantic_model: Some(debug_semantic_model),
             },
             analyzer: AnalyzerCapabilities {
                 lint: Some(lint),
@@ -637,6 +644,101 @@ fn debug_formatter_ir(
     Ok(root_element.to_string())
 }
 
+fn debug_type_info(
+    path: &BiomePath,
+    parse: Option<AnyParse>,
+    graph: Arc<ModuleGraph>,
+) -> Result<String, WorkspaceError> {
+    let Some(parse) = parse else {
+        let result = graph.module_info_for_path(path);
+        return match result {
+            None => Ok(String::new()),
+            // TODO: print correct type info
+            Some(module_info) => {
+                let mut result = String::new();
+                let types = module_info.as_resolver().registered_types();
+                for ty in types {
+                    result.push_str(format!("{ty}\n").as_str());
+                }
+                Ok(result)
+            }
+        };
+    };
+    let tree: AnyJsRoot = parse.tree();
+    let mut result = String::new();
+    let preorder = tree.syntax().preorder();
+
+    let mut resolver = GlobalsResolver::default();
+
+    for event in preorder {
+        match event {
+            WalkEvent::Enter(node) => {
+                if let Some(node) = JsVariableDeclarator::cast_ref(&node) {
+                    if let Some(ty) = TypeData::from_js_variable_declarator(&mut resolver, &node) {
+                        result.push_str(&ty.to_string());
+                        result.push('\n');
+                    }
+                } else if let Some(function) = JsFunctionDeclaration::cast_ref(&node) {
+                    result.push_str(
+                        &TypeData::from_js_function_declaration(&mut resolver, &function)
+                            .to_string(),
+                    );
+                    result.push('\n');
+                } else if let Some(class) = JsClassDeclaration::cast_ref(&node) {
+                    result.push_str(
+                        &TypeData::from_js_class_declaration(&mut resolver, &class).to_string(),
+                    );
+                    result.push('\n');
+                } else if let Some(expression) = JsClassExpression::cast_ref(&node) {
+                    result.push_str(
+                        &TypeData::from_js_class_expression(&mut resolver, &expression).to_string(),
+                    );
+                    result.push('\n');
+                }
+            }
+            WalkEvent::Leave(_) => {}
+        }
+    }
+
+    Ok(result)
+}
+
+fn debug_registered_types(_path: &BiomePath, parse: AnyParse) -> Result<String, WorkspaceError> {
+    let tree: AnyJsRoot = parse.tree();
+    let mut result = String::new();
+    let preorder = tree.syntax().preorder();
+
+    let mut resolver = GlobalsResolver::default();
+    for event in preorder {
+        match event {
+            WalkEvent::Enter(node) => {
+                if let Some(node) = JsVariableDeclarator::cast_ref(&node) {
+                    TypeData::from_js_variable_declarator(&mut resolver, &node);
+                } else if let Some(function) = JsFunctionDeclaration::cast_ref(&node) {
+                    TypeData::from_js_function_declaration(&mut resolver, &function);
+                } else if let Some(class) = JsClassDeclaration::cast_ref(&node) {
+                    TypeData::from_js_class_declaration(&mut resolver, &class);
+                } else if let Some(expression) = JsClassExpression::cast_ref(&node) {
+                    TypeData::from_js_class_expression(&mut resolver, &expression);
+                }
+            }
+            WalkEvent::Leave(_) => {}
+        }
+    }
+
+    for (i, ty) in resolver.registered_types().iter().enumerate() {
+        result.push_str(&format!("\nTypeId({i}) => {ty}\n"));
+    }
+
+    Ok(result)
+}
+
+fn debug_semantic_model(_path: &BiomePath, parse: AnyParse) -> Result<String, WorkspaceError> {
+    let tree: AnyJsRoot = parse.tree();
+    let model = semantic_model(&tree, SemanticModelOptions::default());
+    Ok(model.to_string())
+}
+
 pub(crate) fn lint(params: LintParams) -> LintResults {
     let _ =
         debug_span!("Linting JavaScript file", path =? params.path, language =? params.language)
@@ -719,7 +821,6 @@ pub(crate) fn code_actions(params: CodeActionsParams) -> PullActionsResult {
             .with_enabled_rules(&rules)
             .with_project_layout(project_layout.clone())
             .finish();
-
     let filter = AnalysisFilter {
         categories: RuleCategoriesBuilder::default()
             .with_syntax()
@@ -1023,7 +1124,7 @@ fn rename(
                         new_name,
                     }))
                 } else {
-                    let (range, indels) = batch.as_text_range_and_edit().unwrap_or_default();
+                    let (range, indels) = batch.to_text_range_and_edit().unwrap_or_default();
                     Ok(RenameResult { range, indels })
                 }
             }

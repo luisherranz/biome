@@ -1,12 +1,12 @@
 ---
 source: crates/biome_cli/tests/snap_test.rs
 expression: redactor(content)
-snapshot_kind: text
 ---
 ## `biome.json`
 
 ```json
 {
+  "root": false,
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "vcs": {
     "enabled": true,
@@ -14,20 +14,12 @@ snapshot_kind: text
     "useIgnoreFile": true,
     "defaultBranch": "master"
   },
-  "assist": {
-    "actions": {
-      "source": {
-        "organizeImports": "on"
-      }
-    }
-  },
+  "assist": { "actions": { "source": { "organizeImports": "off" } } },
   "linter": {
     "enabled": true,
     "rules": {
       "recommended": false,
-      "a11y": {
-        "noBlankTarget": "error"
-      },
+      "a11y": {},
       "correctness": {
         "noGlobalObjectCalls": "error",
         "noUnreachable": "error",
@@ -44,21 +36,16 @@ snapshot_kind: text
         "noUselessEmptyExport": "error",
         "noUselessConstructor": "error",
         "noUselessTypeConstraint": "error",
-        "noExcessiveNestedTestSuites": "error"
+        "noExcessiveNestedTestSuites": "error",
+        "noCommaOperator": "error"
       },
-      "nursery": {
-        "noRestrictedImports": {
-          "level": "warn",
-          "options": {
-            "paths": {}
-          }
-        }
-      },
+      "nursery": {},
       "performance": {
         "noBarrelFile": "error"
       },
       "security": {
-        "noDangerouslySetInnerHtmlWithChildren": "error"
+        "noDangerouslySetInnerHtmlWithChildren": "error",
+        "noBlankTarget": "error"
       },
       "suspicious": {
         "noDebugger": "error",
@@ -82,7 +69,6 @@ snapshot_kind: text
         "noVar": "error"
       },
       "style": {
-        "noCommaOperator": "error",
         "noShoutyConstants": "error",
         "noParameterProperties": "error",
         "useConst": "error",
@@ -93,7 +79,13 @@ snapshot_kind: text
         "useLiteralEnumMembers": "error",
         "useEnumInitializers": "error",
         "useAsConstAssertion": "error",
-        "useBlockStatements": "error"
+        "useBlockStatements": "error",
+        "noRestrictedImports": {
+          "level": "warn",
+          "options": {
+            "paths": {}
+          }
+        }
       }
     }
   },
@@ -107,8 +99,7 @@ snapshot_kind: text
       "!**/*.min.js",
       "!**/fixtures",
       "!**/.devenv",
-      "!**/package.json",
-      "**/node_modules/**"
+      "!**/package.json"
     ]
   },
   "css": {
@@ -125,7 +116,7 @@ snapshot_kind: text
     "indentStyle": "space",
     "indentWidth": 2,
     "lineEnding": "lf",
-    "includes": ["**", "!**/tests/**/*.json", "**/node_modules/**"]
+    "includes": ["**", "!**/tests/**/*.json"]
   },
   "javascript": {
     "formatter": {
@@ -161,8 +152,7 @@ snapshot_kind: text
         "**/tests/js/jest-pegjs-transform.js",
         "**/tests/js/setup.ts",
         "**/tests/js/test-balancer/index.js",
-        "**/*.config.ts",
-        "**/node_modules/**"
+        "**/*.config.ts"
       ],
       "linter": {
         "rules": {
@@ -173,16 +163,13 @@ snapshot_kind: text
       }
     },
     {
-      "includes": [
-        "**/src/sentry/templates/sentry/error-page-embed.js",
-        "**/node_modules/**"
-      ],
+      "includes": ["**/src/sentry/templates/sentry/error-page-embed.js"],
       "linter": {
         "rules": {
+          "style": {},
           "suspicious": {
             "noVar": "off"
-          },
-          "style": {}
+          }
         }
       }
     },
@@ -196,8 +183,7 @@ snapshot_kind: text
         "**/static/app/components/sparklines/line.tsx",
         "**/static/app/types/index.tsx",
         "**/tests/js/sentry-test/reactTestingLibrary.tsx",
-        "**/tests/js/sentry-test/index.tsx",
-        "**/node_modules/**"
+        "**/tests/js/sentry-test/index.tsx"
       ],
       "linter": {
         "rules": {
@@ -214,5 +200,11 @@ snapshot_kind: text
 # Emitted Messages
 
 ```block
-The configuration biome.json has been successfully migrated.
+configuration ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  i Migration results:
+  
+  - biome.json: configuration successfully migrated.
+  
+
 ```

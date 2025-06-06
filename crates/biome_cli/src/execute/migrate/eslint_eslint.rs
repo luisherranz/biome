@@ -42,7 +42,7 @@ pub(crate) struct FlatConfigData(pub(crate) Vec<FlatConfigObject>);
 #[derive(Debug, Default, Deserializable)]
 #[deserializable(unknown_fields = "allow")]
 pub(crate) struct FlatConfigObject {
-    pub(crate) files: Vec<Box<str>>,
+    pub(crate) files: NestableVec<Box<str>>,
     /// The glob patterns that ignore to lint.
     pub(crate) ignores: Vec<Box<str>>,
     // using `Option` is important to distinguish a global ignores from a config objerct
@@ -258,6 +258,73 @@ impl<T: Deserializable> Deserializable for ShorthandVec<T> {
                 Vec::from_iter([Deserializable::deserialize(ctx, value, name)?])
             },
         ))
+    }
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct NestableVec<T>(Vec<T>);
+impl<T> Deref for NestableVec<T> {
+    type Target = Vec<T>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl<T> DerefMut for NestableVec<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+impl<T> IntoIterator for NestableVec<T> {
+    type Item = T;
+    type IntoIter = vec::IntoIter<T>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+impl<T> From<Vec<T>> for NestableVec<T> {
+    fn from(value: Vec<T>) -> Self {
+        Self(value)
+    }
+}
+impl<T: Deserializable> Deserializable for NestableVec<T> {
+    fn deserialize(
+        ctx: &mut impl DeserializationContext,
+        value: &impl DeserializableValue,
+        name: &str,
+    ) -> Option<Self> {
+        value
+            .deserialize(ctx, NestableVecVisitor::<T>::new(), name)
+            .map(Self)
+    }
+}
+
+struct NestableVecVisitor<T> {
+    _ty: PhantomData<T>,
+}
+impl<T> NestableVecVisitor<T> {
+    fn new() -> Self {
+        Self { _ty: PhantomData }
+    }
+}
+impl<T: Deserializable> DeserializationVisitor for NestableVecVisitor<T> {
+    type Output = Vec<T>;
+    const EXPECTED_TYPE: DeserializableTypes = DeserializableTypes::ARRAY;
+    fn visit_array(
+        self,
+        ctx: &mut impl DeserializationContext,
+        items: impl Iterator<Item = Option<impl DeserializableValue>>,
+        _range: TextRange,
+        name: &str,
+    ) -> Option<Self::Output> {
+        let mut output = Vec::new();
+        for item in items.flatten() {
+            if item.visitable_type()? == DeserializableType::Array {
+                output.extend(Vec::<T>::deserialize(ctx, &item, name)?);
+            } else {
+                output.push(T::deserialize(ctx, &item, name)?);
+            }
+        }
+        Some(output)
     }
 }
 
@@ -489,6 +556,11 @@ impl Deserializable for Rules {
                                 result.insert(Rule::TypeScriptArrayType(conf));
                             }
                         }
+                        "@typescript-eslint/consistent-type-imports" => {
+                            if let Some(conf) = RuleConf::deserialize(ctx, &value, name) {
+                                result.insert(Rule::TypeScriptConsistentTypeImports(conf));
+                            }
+                        }
                         "@typescript-eslint/explicit-member-accessibility" => {
                             if let Some(conf) = RuleConf::deserialize(ctx, &value, name) {
                                 result.insert(Rule::TypeScriptExplicitMemberAccessibility(conf));
@@ -583,6 +655,7 @@ pub(crate) enum Rule {
     // Eslint plugins
     Jsxa11yArioaRoles(RuleConf<Box<eslint_jsxa11y::AriaRoleOptions>>),
     TypeScriptArrayType(RuleConf<eslint_typescript::ArrayTypeOptions>),
+    TypeScriptConsistentTypeImports(RuleConf<eslint_typescript::ConsistentTypeImportsOptions>),
     TypeScriptExplicitMemberAccessibility(
         RuleConf<eslint_typescript::ExplicitMemberAccessibilityOptions>,
     ),
@@ -598,6 +671,9 @@ impl Rule {
             Self::NoRestrictedGlobals(_) => Cow::Borrowed("no-restricted-globals"),
             Self::Jsxa11yArioaRoles(_) => Cow::Borrowed("jsx-a11y/aria-role"),
             Self::TypeScriptArrayType(_) => Cow::Borrowed("@typescript-eslint/array-type"),
+            Self::TypeScriptConsistentTypeImports(_) => {
+                Cow::Borrowed("@typescript-eslint/consistent-type-imports")
+            }
             Self::TypeScriptExplicitMemberAccessibility(_) => {
                 Cow::Borrowed("@typescript-eslint/explicit-member-accessibility")
             }

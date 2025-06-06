@@ -3,10 +3,12 @@ use biome_analyze::{
 };
 use biome_console::{fmt::Display, markup};
 use biome_deserialize_macros::Deserializable;
+use biome_diagnostics::Severity;
+use biome_fs::BiomePath;
 use biome_js_syntax::{
     AnyJsImportClause, AnyJsImportLike, AnyJsNamedImportSpecifier, JsModuleSource, JsSyntaxToken,
 };
-use biome_module_graph::{JsModuleInfo, JsResolvedPath, ModuleGraph};
+use biome_module_graph::{JsModuleInfo, ModuleGraph, ResolvedPath};
 use biome_rowan::{AstNode, SyntaxResult, Text, TextRange};
 use camino::{Utf8Path, Utf8PathBuf};
 use serde::{Deserialize, Serialize};
@@ -30,7 +32,7 @@ declare_lint_rule! {
     ///
     /// This rule recognizes the JSDoc tags `@public`, `@package`, and
     /// `@private` so that you are free to set the visibility of exports.
-    /// Exports without tag have a default visibility of **public**, but  this
+    /// Exports without tag have a default visibility of **public**, but this
     /// can be configured.
     ///
     /// The `@access` tag is also supported if it's used with one of the values
@@ -58,11 +60,11 @@ declare_lint_rule! {
     /// Private visibility means that a symbol may not be imported from other
     /// modules.
     ///
-    /// The key thing to understanding the usefulness of `@private` is that
-    /// this rule doesn't treat modules and files as one and the same thing.
-    /// While files are indeed modules, folders are considered modules too, with
-    /// their files and subfolders being submodules. Therefore, symbols exported
-    /// as `@private` from an index file, such as `index.js`, can _still_ be
+    /// The key thing to understanding the usefulness of `@private` is that this
+    /// rule doesn't treat modules and files as one and the same thing. While
+    /// files are indeed modules, folders are considered modules too, with their
+    /// files and subfolders being submodules. Therefore, symbols exported as
+    /// `@private` from an index file, such as `index.js`, can _still_ be
     /// imported from other submodules in that same module.
     ///
     /// :::note
@@ -84,6 +86,8 @@ declare_lint_rule! {
     ///   regardless of the default visibility setting.
     /// * This rule does not validate imports through dynamic `import()`
     ///   expressions or CommonJS `require()` calls.
+    /// * Imports from dependencies under `node_modules` are considered out of
+    ///   scope.
     ///
     /// ## Examples
     ///
@@ -109,10 +113,10 @@ declare_lint_rule! {
     /// export function getTestStuff() {}
     /// ```
     ///
-    /// **`bar.test.js`**
-    /// // Attempt to import a private export. To allow this, you probably want
-    /// // to configure an `override` to disable this rule in test files.
-    /// // See: https://biomejs.dev/reference/configuration/#overrides
+    /// **`bar.test.js`** // Attempt to import a private export. To allow this,
+    /// you probably want // to configure an `override` to disable this rule in
+    /// test files. // See:
+    /// https://biomejs.dev/reference/configuration/#overrides
     /// ```js
     /// import { getTestStuff } from "./bar.js";
     /// ```
@@ -139,13 +143,14 @@ declare_lint_rule! {
     /// import { subPrivateVariable } from "../index.js";
     /// ```
     pub NoPrivateImports {
-        version: "next",
+        version: "2.0.0",
         name: "noPrivateImports",
         language: "js",
         sources: &[
             RuleSource::EslintImportAccess("eslint-plugin-import-access")
         ],
         recommended: true,
+        severity: Severity::Warning,
         domains: &[RuleDomain::Project],
     }
 }
@@ -199,7 +204,7 @@ pub struct NoPrivateImportsState {
     range: TextRange,
 
     /// The path where the visibility of the imported symbol is defined.
-    path: String,
+    path: Box<str>,
 
     /// The visibility of the offending symbol.
     visibility: Visibility,
@@ -218,9 +223,13 @@ impl Rule for NoPrivateImports {
         };
 
         let node = ctx.query();
-        let Some(target_path) = module_info
-            .get_import_path_by_js_node(node)
-            .and_then(JsResolvedPath::as_path)
+        let Some(target_path) = node
+            .is_static_import()
+            .then(|| node.inner_string_text())
+            .flatten()
+            .filter(|specifier| !BiomePath::new(specifier.text()).is_dependency())
+            .and_then(|specifier| module_info.static_import_paths.get(specifier.text()))
+            .and_then(ResolvedPath::as_path)
         else {
             return Vec::new();
         };
@@ -315,7 +324,7 @@ fn get_restricted_imports_from_module_source(
     node: &JsModuleSource,
     options: &GetRestrictedImportOptions,
 ) -> SyntaxResult<Vec<NoPrivateImportsState>> {
-    let path = options.target_path.to_string();
+    let path: Box<str> = options.target_path.as_str().into();
 
     let results = match node.syntax().parent().and_then(AnyJsImportClause::cast) {
         Some(AnyJsImportClause::JsImportCombinedClause(node)) => {

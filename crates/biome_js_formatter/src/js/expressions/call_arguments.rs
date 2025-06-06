@@ -1301,9 +1301,7 @@ fn is_function_composition_args(arguments: &JsCallArguments) -> bool {
                     return true;
                 }
             }
-            _ => {
-                continue;
-            }
+            _ => {}
         }
     }
 

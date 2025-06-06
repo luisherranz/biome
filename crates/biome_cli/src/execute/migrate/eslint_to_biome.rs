@@ -189,7 +189,7 @@ impl eslint_eslint::Rules {
 }
 
 /// Look for an equivalent Biome rule for ESLint `rule`,
-/// and then mutate `rules` if a equivalent rule is found.
+/// and then mutate `rules` if an equivalent rule is found.
 /// Also, takes care of Biome's rules with options.
 fn migrate_eslint_rule(
     rules: &mut biome_config::Rules,
@@ -282,10 +282,27 @@ fn migrate_eslint_rule(
                 }
             }
         }
+        eslint_eslint::Rule::TypeScriptConsistentTypeImports(conf) => {
+            if migrate_eslint_any_rule(rules, &name, conf.severity(), opts, results) {
+                if let eslint_eslint::RuleConf::Option(severity, rule_options) = conf {
+                    let group = rules.style.get_or_insert_with(Default::default);
+                    if let SeverityOrGroup::Group(group) = group {
+                        group.use_import_type =
+                            Some(biome_config::RuleFixConfiguration::WithOptions(
+                                biome_config::RuleWithFixOptions {
+                                    level: severity.into(),
+                                    fix: None,
+                                    options: rule_options.into(),
+                                },
+                            ));
+                    }
+                }
+            }
+        }
         eslint_eslint::Rule::TypeScriptExplicitMemberAccessibility(conf) => {
             if migrate_eslint_any_rule(rules, &name, conf.severity(), opts, results) {
                 if let eslint_eslint::RuleConf::Option(severity, rule_options) = conf {
-                    let group = rules.nursery.get_or_insert_with(Default::default);
+                    let group = rules.style.get_or_insert_with(Default::default);
                     if let SeverityOrGroup::Group(group) = group {
                         group.use_consistent_member_accessibility =
                             Some(biome_config::RuleConfiguration::WithOptions(
@@ -370,7 +387,7 @@ mod tests {
     #[test]
     fn flat_config_single_config_object() {
         let flat_config = FlatConfigData(vec![FlatConfigObject {
-            files: vec!["*.js".into()],
+            files: vec!["*.js".into()].into(),
             ignores: vec!["*.test.js".into()],
             language_options: None,
             rules: Some(Rules(
@@ -397,13 +414,13 @@ mod tests {
     fn flat_config_multiple_config_object() {
         let flat_config = FlatConfigData(vec![
             FlatConfigObject {
-                files: vec![],
+                files: vec![].into(),
                 ignores: vec!["*.test.js".into()],
                 language_options: None,
                 rules: None,
             },
             FlatConfigObject {
-                files: vec![],
+                files: vec![].into(),
                 ignores: vec![],
                 language_options: None,
                 rules: Some(Rules(
@@ -413,13 +430,13 @@ mod tests {
                 )),
             },
             FlatConfigObject {
-                files: vec![],
+                files: vec![].into(),
                 ignores: vec!["*.spec.js".into()],
                 language_options: None,
                 rules: None,
             },
             FlatConfigObject {
-                files: vec!["*.ts".into()],
+                files: vec!["*.ts".into()].into(),
                 ignores: vec![],
                 language_options: None,
                 rules: Some(Rules(

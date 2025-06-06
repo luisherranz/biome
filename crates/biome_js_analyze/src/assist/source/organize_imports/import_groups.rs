@@ -1,8 +1,7 @@
 use biome_deserialize::{Deserializable, DeserializationContext, Text};
 use biome_deserialize_macros::Deserializable;
 use biome_glob::{CandidatePath, Glob};
-
-use crate::globals::is_node_builtin_module;
+use biome_resolver::is_builtin_node_module;
 
 use super::{
     comparable_token::ComparableToken,
@@ -314,10 +313,20 @@ impl TryFrom<String> for NegatablePredefinedSourceMatcher {
 #[cfg(feature = "schema")]
 impl schemars::JsonSchema for NegatablePredefinedSourceMatcher {
     fn schema_name() -> String {
-        "PredefinedGroupMatcher".to_string()
+        "NegatablePredefinedSourceMatcher".to_string()
     }
     fn json_schema(generator: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
-        String::json_schema(generator)
+        let schema = PredefinedSourceMatcher::json_schema(generator);
+        let mut schema_object = schema.into_object();
+        // Add negated variants
+        if let Some(enum_values) = &mut schema_object.enum_values {
+            for index in 0..enum_values.len() {
+                if let Some(val) = enum_values[index].as_str() {
+                    enum_values.push(format!("!{val}").into());
+                }
+            }
+        }
+        schema_object.into()
     }
 }
 
@@ -352,7 +361,7 @@ impl PredefinedSourceMatcher {
             }
             Self::Node => {
                 (source_kind == ImportSourceKind::ProtocolPackage && source.starts_with("node:"))
-                    || (source_kind == ImportSourceKind::Package && is_node_builtin_module(source))
+                    || (source_kind == ImportSourceKind::Package && is_builtin_node_module(source))
             }
             Self::Package => source_kind == ImportSourceKind::Package,
             Self::Path => source_kind == ImportSourceKind::Path,
@@ -364,14 +373,14 @@ impl PredefinedSourceMatcher {
 impl std::fmt::Display for PredefinedSourceMatcher {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let repr = match self {
-            // Don't forget to update `impl std::str::FromStr for PredefinedImportGroup`
-            Self::Alias => "ALIAS",
-            Self::Bun => "BUN",
-            Self::Node => "NODE",
-            Self::Package => "PACKAGE",
-            Self::ProtocolPackage => "PACKAGE_WITH_PROTOCOL",
-            Self::Path => "PATH",
-            Self::Url => "URL",
+            // Don't forget to update `impl std::str::FromStr for PredefinedSourceMatcher`
+            Self::Alias => ":ALIAS:",
+            Self::Bun => ":BUN:",
+            Self::Node => ":NODE:",
+            Self::Package => ":PACKAGE:",
+            Self::ProtocolPackage => ":PACKAGE_WITH_PROTOCOL:",
+            Self::Path => ":PATH:",
+            Self::Url => ":URL:",
         };
         f.write_str(repr)
     }

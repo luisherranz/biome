@@ -1,7 +1,9 @@
+#![expect(clippy::mutable_key_type)]
 use std::any::type_name;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::slice;
+use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::{Context, Error, Result, bail};
@@ -12,8 +14,8 @@ use biome_fs::{BiomePath, MemoryFileSystem, TemporaryFs};
 use biome_service::WorkspaceWatcher;
 use biome_service::workspace::{
     GetFileContentParams, GetSyntaxTreeParams, GetSyntaxTreeResult, OpenProjectParams,
-    PullDiagnosticsParams, PullDiagnosticsResult, ScanKind, ScanProjectFolderParams,
-    ScanProjectFolderResult,
+    OpenProjectResult, PullDiagnosticsParams, PullDiagnosticsResult, ScanKind,
+    ScanProjectFolderParams, ScanProjectFolderResult,
 };
 use camino::Utf8PathBuf;
 use futures::channel::mpsc::{Sender, channel};
@@ -24,14 +26,14 @@ use serde_json::{from_value, to_value};
 use tokio::time::sleep;
 use tower::timeout::Timeout;
 use tower::{Service, ServiceExt};
-use tower_lsp::LspService;
-use tower_lsp::jsonrpc::{self, Request, Response};
-use tower_lsp::lsp_types::{
+use tower_lsp_server::LspService;
+use tower_lsp_server::jsonrpc::{self, Request, Response};
+use tower_lsp_server::lsp_types::{
     self as lsp, ClientCapabilities, CodeDescription, DidChangeConfigurationParams,
     DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
     DocumentFormattingParams, FormattingOptions, InitializeParams, InitializeResult,
     InitializedParams, Position, PublishDiagnosticsParams, Range, TextDocumentContentChangeEvent,
-    TextDocumentIdentifier, TextDocumentItem, TextEdit, Url, VersionedTextDocumentIdentifier,
+    TextDocumentIdentifier, TextDocumentItem, TextEdit, Uri, VersionedTextDocumentIdentifier,
     WorkDoneProgressParams, WorkspaceFolder,
 };
 
@@ -39,16 +41,16 @@ use crate::WorkspaceSettings;
 
 use super::*;
 
-/// Statically build an [Url] instance that points to the file at `$path`
+/// Statically build an [Uri] instance that points to the file at `$path`
 /// within the workspace. The filesystem path contained in the return URI is
 /// guaranteed to be a valid path for the underlying operating system, but
 /// doesn't have to refer to an existing file on the host machine.
-macro_rules! url {
+macro_rules! uri {
     ($path:literal) => {
         if cfg!(windows) {
-            lsp::Url::parse(concat!("file:///z%3A/workspace/", $path)).unwrap()
+            lsp::Uri::from_str(concat!("file:///z%3A/workspace/", $path)).unwrap()
         } else {
-            lsp::Url::parse(concat!("file:///workspace/", $path)).unwrap()
+            lsp::Uri::from_str(concat!("file:///workspace/", $path)).unwrap()
         }
     };
 }
@@ -64,8 +66,12 @@ macro_rules! clear_notifications {
     };
 }
 
-fn fixable_diagnostic(line: u32) -> Result<lsp::Diagnostic> {
-    Ok(lsp::Diagnostic {
+fn to_utf8_file_path_buf(uri: Uri) -> Utf8PathBuf {
+    Utf8PathBuf::from_path_buf(uri.to_file_path().unwrap().to_path_buf()).unwrap()
+}
+
+fn fixable_diagnostic(line: u32) -> Result<Diagnostic> {
+    Ok(Diagnostic {
         range: Range {
             start: Position { line, character: 3 },
             end: Position {
@@ -73,8 +79,8 @@ fn fixable_diagnostic(line: u32) -> Result<lsp::Diagnostic> {
                 character: 11,
             },
         },
-        severity: Some(lsp::DiagnosticSeverity::ERROR),
-        code: Some(lsp::NumberOrString::String(String::from(
+        severity: Some(DiagnosticSeverity::ERROR),
+        code: Some(NumberOrString::String(String::from(
             "lint/suspicious/noCompareNegZero",
         ))),
         code_description: None,
@@ -174,13 +180,14 @@ impl Server {
                 InitializeParams {
                     process_id: None,
                     root_path: None,
-                    root_uri: Some(url!("")),
+                    root_uri: Some(uri!("")),
                     initialization_options: None,
                     capabilities: ClientCapabilities::default(),
                     trace: None,
                     workspace_folders: None,
                     client_info: None,
                     locale: None,
+                    work_done_progress_params: Default::default(),
                 },
             )
             .await?
@@ -202,22 +209,23 @@ impl Server {
                 InitializeParams {
                     process_id: None,
                     root_path: None,
-                    root_uri: Some(url!("/")),
+                    root_uri: Some(uri!("/")),
                     initialization_options: None,
                     capabilities: ClientCapabilities::default(),
                     trace: None,
                     workspace_folders: Some(vec![
                         WorkspaceFolder {
                             name: "test_one".to_string(),
-                            uri: url!("test_one"),
+                            uri: uri!("test_one"),
                         },
                         WorkspaceFolder {
                             name: "test_two".to_string(),
-                            uri: url!("test_two"),
+                            uri: uri!("test_two"),
                         },
                     ]),
                     client_info: None,
                     locale: None,
+                    work_done_progress_params: Default::default(),
                 },
             )
             .await?
@@ -256,7 +264,7 @@ impl Server {
             "textDocument/didOpen",
             DidOpenTextDocumentParams {
                 text_document: TextDocumentItem {
-                    uri: url!("document.js"),
+                    uri: uri!("document.js"),
                     language_id: String::from("javascript"),
                     version: 0,
                     text: text.to_string(),
@@ -271,7 +279,7 @@ impl Server {
             "textDocument/didOpen",
             DidOpenTextDocumentParams {
                 text_document: TextDocumentItem {
-                    uri: url!("untitled-1"),
+                    uri: uri!("untitled-1"),
                     language_id: String::from("javascript"),
                     version: 0,
                     text: text.to_string(),
@@ -285,7 +293,7 @@ impl Server {
     async fn open_named_document(
         &mut self,
         text: impl Display,
-        document_name: Url,
+        document_name: Uri,
         language: impl Display,
     ) -> Result<()> {
         self.notify(
@@ -307,7 +315,7 @@ impl Server {
         self.notify(
             "workspace/didChangeConfiguration",
             DidChangeConfigurationParams {
-                settings: to_value(()).unwrap(),
+                settings: to_value(())?,
             },
         )
         .await
@@ -322,7 +330,7 @@ impl Server {
             "textDocument/didChange",
             DidChangeTextDocumentParams {
                 text_document: VersionedTextDocumentIdentifier {
-                    uri: url!("document.js"),
+                    uri: uri!("document.js"),
                     version,
                 },
                 content_changes,
@@ -336,7 +344,7 @@ impl Server {
             "textDocument/didClose",
             DidCloseTextDocumentParams {
                 text_document: TextDocumentIdentifier {
-                    uri: url!("document.js"),
+                    uri: uri!("document.js"),
                 },
             },
         )
@@ -371,13 +379,13 @@ impl ServerNotification {
 }
 
 async fn wait_for_notification(
-    receiver: &mut (impl futures::stream::Stream<Item = ServerNotification> + Unpin),
+    receiver: &mut (impl Stream<Item = ServerNotification> + Unpin),
     check: impl Fn(&ServerNotification) -> bool,
 ) -> Option<ServerNotification> {
     loop {
         let notification = tokio::select! {
             msg = receiver.next() => msg,
-            _ = sleep(Duration::from_secs(1)) => {
+            _ = sleep(Duration::from_secs(3)) => {
                 panic!("timed out waiting for the server to send diagnostics")
             }
         };
@@ -387,7 +395,6 @@ async fn wait_for_notification(
                 if check(&notification) {
                     return Some(notification);
                 }
-                continue;
             }
             None => break None,
         }
@@ -578,13 +585,15 @@ async fn document_lifecycle() -> Result<()> {
 
     // `open_project()` will return an existing key if called with a path
     // for an existing project.
-    let project_key = server
+    let OpenProjectResult { project_key, .. } = server
         .request(
             "biome/open_project",
             "open_project",
             OpenProjectParams {
                 path: BiomePath::new(""),
                 open_uninitialized: true,
+                only_rules: None,
+                skip_rules: None,
             },
         )
         .await?
@@ -596,7 +605,7 @@ async fn document_lifecycle() -> Result<()> {
             "get_syntax_tree",
             GetSyntaxTreeParams {
                 project_key,
-                path: BiomePath::try_from(url!("document.js").to_file_path().unwrap()).unwrap(),
+                path: BiomePath::try_from(uri!("document.js").to_file_path().unwrap()).unwrap(),
             },
         )
         .await?
@@ -638,13 +647,15 @@ async fn lifecycle_with_multiple_connections() -> Result<()> {
 
         // `open_project()` will return an existing key if called with a path
         // for an existing project.
-        let project_key = server
+        let OpenProjectResult { project_key, .. } = server
             .request(
                 "biome/open_project",
                 "open_project",
                 OpenProjectParams {
                     path: BiomePath::new(""),
                     open_uninitialized: true,
+                    only_rules: None,
+                    skip_rules: None,
                 },
             )
             .await?
@@ -656,7 +667,7 @@ async fn lifecycle_with_multiple_connections() -> Result<()> {
                 "get_syntax_tree",
                 GetSyntaxTreeParams {
                     project_key,
-                    path: BiomePath::try_from(url!("document.js").to_file_path().unwrap()).unwrap(),
+                    path: BiomePath::try_from(uri!("document.js").to_file_path().unwrap()).unwrap(),
                 },
             )
             .await?
@@ -682,13 +693,15 @@ async fn lifecycle_with_multiple_connections() -> Result<()> {
 
         // `open_project()` will return an existing key if called with a path
         // for an existing project.
-        let project_key = server
+        let OpenProjectResult { project_key, .. } = server
             .request(
                 "biome/open_project",
                 "open_project",
                 OpenProjectParams {
                     path: BiomePath::new(""),
                     open_uninitialized: true,
+                    only_rules: None,
+                    skip_rules: None,
                 },
             )
             .await?
@@ -700,7 +713,7 @@ async fn lifecycle_with_multiple_connections() -> Result<()> {
                 "get_syntax_tree",
                 GetSyntaxTreeParams {
                     project_key,
-                    path: BiomePath::try_from(url!("document.js").to_file_path().unwrap()).unwrap(),
+                    path: BiomePath::try_from(uri!("document.js").to_file_path().unwrap()).unwrap(),
                 },
             )
             .await?
@@ -733,7 +746,7 @@ async fn document_no_extension() -> Result<()> {
             "textDocument/didOpen",
             DidOpenTextDocumentParams {
                 text_document: TextDocumentItem {
-                    uri: url!("document"),
+                    uri: uri!("document"),
                     language_id: String::from("javascript"),
                     version: 0,
                     text: String::from("statement()"),
@@ -748,7 +761,7 @@ async fn document_no_extension() -> Result<()> {
             "formatting",
             DocumentFormattingParams {
                 text_document: TextDocumentIdentifier {
-                    uri: url!("document"),
+                    uri: uri!("document"),
                 },
                 options: FormattingOptions {
                     tab_size: 4,
@@ -774,11 +787,77 @@ async fn document_no_extension() -> Result<()> {
             "textDocument/didClose",
             DidCloseTextDocumentParams {
                 text_document: TextDocumentIdentifier {
-                    uri: url!("document"),
+                    uri: uri!("document"),
                 },
             },
         )
         .await?;
+
+    server.shutdown().await?;
+    reader.abort();
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn document_range_formatting() -> Result<()> {
+    let factory = ServerFactory::default();
+    let (service, client) = factory.create().into_inner();
+    let (stream, sink) = client.split();
+    let mut server = Server::new(service);
+
+    let (sender, _) = channel(CHANNEL_BUFFER_SIZE);
+    let reader = tokio::spawn(client_handler(stream, sink, sender));
+
+    server.initialize().await?;
+    server.initialized().await?;
+
+    server
+        .notify(
+            "textDocument/didOpen",
+            DidOpenTextDocumentParams {
+                text_document: TextDocumentItem {
+                    uri: uri!("document.js"),
+                    language_id: String::from("javascript"),
+                    version: 0,
+                    text: String::from("doNotFormatHere()\nformatHere()\ndoNotFormatHere()\n"),
+                },
+            },
+        )
+        .await?;
+
+    let res: Option<Vec<TextEdit>> = server
+        .request(
+            "textDocument/rangeFormatting",
+            "formatting",
+            DocumentRangeFormattingParams {
+                text_document: TextDocumentIdentifier {
+                    uri: uri!("document.js"),
+                },
+                range: Range::new(Position::new(1, 0), Position::new(2, 0)),
+                options: FormattingOptions {
+                    tab_size: 4,
+                    insert_spaces: false,
+                    properties: HashMap::default(),
+                    trim_trailing_whitespace: None,
+                    insert_final_newline: None,
+                    trim_final_newlines: None,
+                },
+                work_done_progress_params: WorkDoneProgressParams {
+                    work_done_token: None,
+                },
+            },
+        )
+        .await?
+        .context("formatting returned None")?;
+
+    assert_eq!(
+        res.context("formatting did not return an edit list")?,
+        vec![TextEdit::new(
+            Range::new(Position::new(1, 12), Position::new(1, 12)),
+            ";".to_string()
+        )]
+    );
 
     server.shutdown().await?;
     reader.abort();
@@ -799,7 +878,7 @@ async fn pull_diagnostics() -> Result<()> {
     server.initialize().await?;
     server.initialized().await?;
 
-    server.open_document("if(a == b) {}").await?;
+    server.open_document("const a = 1; a = 2;").await?;
 
     let notification = wait_for_notification(&mut receiver, |n| n.is_publish_diagnostics()).await;
 
@@ -807,50 +886,76 @@ async fn pull_diagnostics() -> Result<()> {
         notification,
         Some(ServerNotification::PublishDiagnostics(
             PublishDiagnosticsParams {
-                uri: url!("document.js"),
+                uri: uri!("document.js"),
                 version: Some(0),
-                diagnostics: vec![lsp::Diagnostic {
-                    range: Range {
-                        start: Position {
-                            line: 0,
-                            character: 5,
-                        },
-                        end: Position {
-                            line: 0,
-                            character: 7,
-                        },
-                    },
-                    severity: Some(lsp::DiagnosticSeverity::ERROR),
-                    code: Some(lsp::NumberOrString::String(String::from(
-                        "lint/suspicious/noDoubleEquals",
-                    ))),
-                    code_description: Some(CodeDescription {
-                        href: Url::parse("https://biomejs.dev/linter/rules/no-double-equals")
-                            .unwrap()
-                    }),
-                    source: Some(String::from("biome")),
-                    message: String::from(
-                        "Use === instead of ==. == is only allowed when comparing against `null`",
-                    ),
-                    related_information: Some(vec![lsp::DiagnosticRelatedInformation {
-                        location: lsp::Location {
-                            uri: url!("document.js"),
-                            range: Range {
-                                start: Position {
-                                    line: 0,
-                                    character: 5,
-                                },
-                                end: Position {
-                                    line: 0,
-                                    character: 7,
-                                },
+                diagnostics: vec![
+                    lsp::Diagnostic {
+                        range: Range {
+                            start: Position {
+                                line: 0,
+                                character: 6,
+                            },
+                            end: Position {
+                                line: 0,
+                                character: 7,
                             },
                         },
-                        message: String::new(),
-                    }]),
-                    tags: None,
-                    data: None,
-                }],
+                        severity: Some(lsp::DiagnosticSeverity::WARNING),
+                        code: Some(lsp::NumberOrString::String(String::from(
+                            "lint/correctness/noUnusedVariables",
+                        ))),
+                        code_description: Some(lsp::CodeDescription {
+                            href: "https://biomejs.dev/linter/rules/no-unused-variables"
+                                .parse()
+                                .unwrap(),
+                        }),
+                        source: Some(String::from("biome")),
+                        message: String::from("This variable is unused.",),
+                        related_information: None,
+                        tags: None,
+                        data: None,
+                    },
+                    lsp::Diagnostic {
+                        range: Range {
+                            start: Position {
+                                line: 0,
+                                character: 13,
+                            },
+                            end: Position {
+                                line: 0,
+                                character: 14,
+                            },
+                        },
+                        severity: Some(lsp::DiagnosticSeverity::ERROR),
+                        code: Some(lsp::NumberOrString::String(String::from(
+                            "lint/correctness/noConstAssign",
+                        ))),
+                        code_description: Some(CodeDescription {
+                            href: "https://biomejs.dev/linter/rules/no-const-assign".parse()?
+                        }),
+                        source: Some(String::from("biome")),
+                        message: String::from("Can't assign a because it's a constant.",),
+                        related_information: Some(vec![lsp::DiagnosticRelatedInformation {
+                            location: lsp::Location {
+                                uri: uri!("document.js"),
+                                range: Range {
+                                    start: Position {
+                                        line: 0,
+                                        character: 6,
+                                    },
+                                    end: Position {
+                                        line: 0,
+                                        character: 7,
+                                    },
+                                },
+                            },
+                            message: "This is where the variable is defined as constant. "
+                                .to_string(),
+                        }]),
+                        tags: None,
+                        data: None,
+                    }
+                ],
             }
         ))
     );
@@ -884,30 +989,116 @@ async fn pull_diagnostics_of_syntax_rules() -> Result<()> {
         notification,
         Some(ServerNotification::PublishDiagnostics(
             PublishDiagnosticsParams {
-                uri: url!("document.js"),
+                uri: uri!("document.js"),
                 version: Some(0),
-                diagnostics: vec![lsp::Diagnostic {
-                    range: Range {
-                        start: Position {
-                            line: 0,
-                            character: 16,
+                diagnostics: vec![
+                    lsp::Diagnostic {
+                        range: Range {
+                            start: Position {
+                                line: 0,
+                                character: 10,
+                            },
+                            end: Position {
+                                line: 0,
+                                character: 14,
+                            },
                         },
-                        end: Position {
-                            line: 0,
-                            character: 20,
-                        },
+                        severity: Some(lsp::DiagnosticSeverity::WARNING),
+                        code: Some(lsp::NumberOrString::String(String::from(
+                            "lint/correctness/noUnusedPrivateClassMembers",
+                        ))),
+                        code_description: Some(lsp::CodeDescription {
+                            href:
+                                "https://biomejs.dev/linter/rules/no-unused-private-class-members"
+                                    .parse()
+                                    .unwrap(),
+                        }),
+                        source: Some(String::from("biome")),
+                        message: String::from(
+                            "This private class member is defined but never used.",
+                        ),
+                        related_information: None,
+                        tags: None,
+                        data: None,
                     },
-                    severity: Some(lsp::DiagnosticSeverity::ERROR),
-                    code: Some(lsp::NumberOrString::String(String::from(
-                        "syntax/correctness/noDuplicatePrivateClassMembers",
-                    ))),
-                    code_description: None,
-                    source: Some(String::from("biome")),
-                    message: String::from("Duplicate private class member \"#foo\"",),
-                    related_information: None,
-                    tags: None,
-                    data: None,
-                }],
+                    lsp::Diagnostic {
+                        range: Range {
+                            start: Position {
+                                line: 0,
+                                character: 16,
+                            },
+                            end: Position {
+                                line: 0,
+                                character: 20,
+                            },
+                        },
+                        severity: Some(lsp::DiagnosticSeverity::WARNING),
+                        code: Some(lsp::NumberOrString::String(String::from(
+                            "lint/correctness/noUnusedPrivateClassMembers",
+                        ))),
+                        code_description: Some(lsp::CodeDescription {
+                            href:
+                                "https://biomejs.dev/linter/rules/no-unused-private-class-members"
+                                    .parse()
+                                    .unwrap(),
+                        }),
+                        source: Some(String::from("biome")),
+                        message: String::from(
+                            "This private class member is defined but never used.",
+                        ),
+                        related_information: None,
+                        tags: None,
+                        data: None,
+                    },
+                    lsp::Diagnostic {
+                        range: Range {
+                            start: Position {
+                                line: 0,
+                                character: 16,
+                            },
+                            end: Position {
+                                line: 0,
+                                character: 20,
+                            },
+                        },
+                        severity: Some(lsp::DiagnosticSeverity::ERROR),
+                        code: Some(lsp::NumberOrString::String(String::from(
+                            "syntax/correctness/noDuplicatePrivateClassMembers",
+                        ))),
+                        code_description: None,
+                        source: Some(String::from("biome")),
+                        message: String::from("Duplicate private class member \"#foo\"",),
+                        related_information: None,
+                        tags: None,
+                        data: None,
+                    },
+                    lsp::Diagnostic {
+                        range: Range {
+                            start: Position {
+                                line: 0,
+                                character: 6,
+                            },
+                            end: Position {
+                                line: 0,
+                                character: 7,
+                            },
+                        },
+                        severity: Some(lsp::DiagnosticSeverity::WARNING),
+                        code: Some(lsp::NumberOrString::String(String::from(
+                            "lint/correctness/noUnusedVariables",
+                        ))),
+                        code_description: Some(lsp::CodeDescription {
+                            href: "https://biomejs.dev/linter/rules/no-unused-variables"
+                                .parse()
+                                .unwrap(),
+                        }),
+                        source: Some(String::from("biome")),
+                        message: String::from("This class is unused.",),
+                        related_information: None,
+                        tags: None,
+                        data: None,
+                    }
+                ],
             }
         ))
     );
@@ -933,7 +1124,7 @@ async fn pull_diagnostics_from_new_file() -> Result<()> {
     server.initialize().await?;
     server.initialized().await?;
 
-    server.open_untitled_document("if(a == b) {}").await?;
+    server.open_untitled_document("const a = 1; a = 2;").await?;
 
     let notification = wait_for_notification(&mut receiver, |n| n.is_publish_diagnostics()).await;
 
@@ -941,50 +1132,76 @@ async fn pull_diagnostics_from_new_file() -> Result<()> {
         notification,
         Some(ServerNotification::PublishDiagnostics(
             PublishDiagnosticsParams {
-                uri: url!("untitled-1"),
+                uri: uri!("untitled-1"),
                 version: Some(0),
-                diagnostics: vec![lsp::Diagnostic {
-                    range: Range {
-                        start: Position {
-                            line: 0,
-                            character: 5,
-                        },
-                        end: Position {
-                            line: 0,
-                            character: 7,
-                        },
-                    },
-                    severity: Some(lsp::DiagnosticSeverity::ERROR),
-                    code: Some(lsp::NumberOrString::String(String::from(
-                        "lint/suspicious/noDoubleEquals",
-                    ))),
-                    code_description: Some(CodeDescription {
-                        href: Url::parse("https://biomejs.dev/linter/rules/no-double-equals")
-                            .unwrap()
-                    }),
-                    source: Some(String::from("biome")),
-                    message: String::from(
-                        "Use === instead of ==. == is only allowed when comparing against `null`",
-                    ),
-                    related_information: Some(vec![lsp::DiagnosticRelatedInformation {
-                        location: lsp::Location {
-                            uri: url!("untitled-1"),
-                            range: Range {
-                                start: Position {
-                                    line: 0,
-                                    character: 5,
-                                },
-                                end: Position {
-                                    line: 0,
-                                    character: 7,
-                                },
+                diagnostics: vec![
+                    lsp::Diagnostic {
+                        range: Range {
+                            start: Position {
+                                line: 0,
+                                character: 6,
+                            },
+                            end: Position {
+                                line: 0,
+                                character: 7,
                             },
                         },
-                        message: String::new(),
-                    }]),
-                    tags: None,
-                    data: None,
-                }],
+                        severity: Some(lsp::DiagnosticSeverity::WARNING),
+                        code: Some(lsp::NumberOrString::String(String::from(
+                            "lint/correctness/noUnusedVariables",
+                        ))),
+                        code_description: Some(lsp::CodeDescription {
+                            href: "https://biomejs.dev/linter/rules/no-unused-variables"
+                                .parse()
+                                .unwrap(),
+                        }),
+                        source: Some(String::from("biome")),
+                        message: String::from("This variable is unused.",),
+                        related_information: None,
+                        tags: None,
+                        data: None,
+                    },
+                    lsp::Diagnostic {
+                        range: Range {
+                            start: Position {
+                                line: 0,
+                                character: 13,
+                            },
+                            end: Position {
+                                line: 0,
+                                character: 14,
+                            },
+                        },
+                        severity: Some(lsp::DiagnosticSeverity::ERROR),
+                        code: Some(lsp::NumberOrString::String(String::from(
+                            "lint/correctness/noConstAssign",
+                        ))),
+                        code_description: Some(CodeDescription {
+                            href: "https://biomejs.dev/linter/rules/no-const-assign".parse()?
+                        }),
+                        source: Some(String::from("biome")),
+                        message: String::from("Can't assign a because it's a constant.",),
+                        related_information: Some(vec![lsp::DiagnosticRelatedInformation {
+                            location: lsp::Location {
+                                uri: uri!("untitled-1"),
+                                range: Range {
+                                    start: Position {
+                                        line: 0,
+                                        character: 6,
+                                    },
+                                    end: Position {
+                                        line: 0,
+                                        character: 7,
+                                    },
+                                },
+                            },
+                            message: "This is where the variable is defined as constant. "
+                                .to_string(),
+                        }]),
+                        tags: None,
+                        data: None,
+                    }
+                ],
             }
         ))
     );
@@ -1012,13 +1229,13 @@ async fn pull_quick_fixes() -> Result<()> {
 
     server.open_document("if(a === -0) {}").await?;
 
-    let res: lsp::CodeActionResponse = server
+    let res: CodeActionResponse = server
         .request(
             "textDocument/codeAction",
             "pull_code_actions",
-            lsp::CodeActionParams {
+            CodeActionParams {
                 text_document: TextDocumentIdentifier {
-                    uri: url!("document.js"),
+                    uri: uri!("document.js"),
                 },
                 range: Range {
                     start: Position {
@@ -1030,15 +1247,15 @@ async fn pull_quick_fixes() -> Result<()> {
                         character: 6,
                     },
                 },
-                context: lsp::CodeActionContext {
+                context: CodeActionContext {
                     diagnostics: vec![fixable_diagnostic(0)?],
-                    only: Some(vec![lsp::CodeActionKind::QUICKFIX]),
+                    only: Some(vec![CodeActionKind::QUICKFIX]),
                     ..Default::default()
                 },
                 work_done_progress_params: WorkDoneProgressParams {
                     work_done_token: None,
                 },
-                partial_result_params: lsp::PartialResultParams {
+                partial_result_params: PartialResultParams {
                     partial_result_token: None,
                 },
             },
@@ -1048,7 +1265,7 @@ async fn pull_quick_fixes() -> Result<()> {
 
     let mut changes = HashMap::default();
     changes.insert(
-        url!("document.js"),
+        uri!("document.js"),
         vec![TextEdit {
             range: Range {
                 start: Position {
@@ -1064,13 +1281,13 @@ async fn pull_quick_fixes() -> Result<()> {
         }],
     );
 
-    let expected_code_action = lsp::CodeActionOrCommand::CodeAction(lsp::CodeAction {
+    let expected_code_action = CodeActionOrCommand::CodeAction(CodeAction {
         title: String::from("Replace -0 with 0"),
-        kind: Some(lsp::CodeActionKind::new(
+        kind: Some(CodeActionKind::new(
             "quickfix.biome.suspicious.noCompareNegZero",
         )),
         diagnostics: Some(vec![fixable_diagnostic(0)?]),
-        edit: Some(lsp::WorkspaceEdit {
+        edit: Some(WorkspaceEdit {
             changes: Some(changes),
             document_changes: None,
             change_annotations: None,
@@ -1083,7 +1300,7 @@ async fn pull_quick_fixes() -> Result<()> {
 
     let mut suppression_changes = HashMap::default();
     suppression_changes.insert(
-        url!("document.js"),
+        uri!("document.js"),
         vec![TextEdit {
             range: Range {
                 start: Position {
@@ -1101,27 +1318,24 @@ async fn pull_quick_fixes() -> Result<()> {
         }],
     );
 
-    let expected_inline_suppression_action =
-        lsp::CodeActionOrCommand::CodeAction(lsp::CodeAction {
-            title: String::from("Suppress rule lint/suspicious/noCompareNegZero for this line."),
-            kind: Some(lsp::CodeActionKind::new(
-                "quickfix.suppressRule.inline.biome",
-            )),
-            diagnostics: Some(vec![fixable_diagnostic(0)?]),
-            edit: Some(lsp::WorkspaceEdit {
-                changes: Some(suppression_changes),
-                document_changes: None,
-                change_annotations: None,
-            }),
-            command: None,
-            is_preferred: None,
-            disabled: None,
-            data: None,
-        });
+    let expected_inline_suppression_action = CodeActionOrCommand::CodeAction(CodeAction {
+        title: String::from("Suppress rule lint/suspicious/noCompareNegZero for this line."),
+        kind: Some(CodeActionKind::new("quickfix.suppressRule.inline.biome")),
+        diagnostics: Some(vec![fixable_diagnostic(0)?]),
+        edit: Some(WorkspaceEdit {
+            changes: Some(suppression_changes),
+            document_changes: None,
+            change_annotations: None,
+        }),
+        command: None,
+        is_preferred: None,
+        disabled: None,
+        data: None,
+    });
 
     let mut top_level_changes = HashMap::default();
     top_level_changes.insert(
-        url!("document.js"),
+        uri!("document.js"),
         vec![TextEdit {
             range: Range {
                 start: Position {
@@ -1139,25 +1353,20 @@ async fn pull_quick_fixes() -> Result<()> {
         }],
     );
 
-    let expected_top_level_suppression_action =
-        lsp::CodeActionOrCommand::CodeAction(lsp::CodeAction {
-            title: String::from(
-                "Suppress rule lint/suspicious/noCompareNegZero for the whole file.",
-            ),
-            kind: Some(lsp::CodeActionKind::new(
-                "quickfix.suppressRule.topLevel.biome",
-            )),
-            diagnostics: Some(vec![fixable_diagnostic(0)?]),
-            edit: Some(lsp::WorkspaceEdit {
-                changes: Some(top_level_changes),
-                document_changes: None,
-                change_annotations: None,
-            }),
-            command: None,
-            is_preferred: None,
-            disabled: None,
-            data: None,
-        });
+    let expected_top_level_suppression_action = CodeActionOrCommand::CodeAction(CodeAction {
+        title: String::from("Suppress rule lint/suspicious/noCompareNegZero for the whole file."),
+        kind: Some(CodeActionKind::new("quickfix.suppressRule.topLevel.biome")),
+        diagnostics: Some(vec![fixable_diagnostic(0)?]),
+        edit: Some(WorkspaceEdit {
+            changes: Some(top_level_changes),
+            document_changes: None,
+            change_annotations: None,
+        }),
+        command: None,
+        is_preferred: None,
+        disabled: None,
+        data: None,
+    });
 
     assert_eq!(
         res,
@@ -1183,7 +1392,7 @@ async fn pull_biome_quick_fixes_ignore_unsafe() -> Result<()> {
     let (stream, sink) = client.split();
     let mut server = Server::new(service);
 
-    let unsafe_fixable = lsp::Diagnostic {
+    let unsafe_fixable = Diagnostic {
         range: Range {
             start: Position {
                 line: 0,
@@ -1194,8 +1403,8 @@ async fn pull_biome_quick_fixes_ignore_unsafe() -> Result<()> {
                 character: 9,
             },
         },
-        severity: Some(lsp::DiagnosticSeverity::ERROR),
-        code: Some(lsp::NumberOrString::String(String::from(
+        severity: Some(DiagnosticSeverity::ERROR),
+        code: Some(NumberOrString::String(String::from(
             "lint/suspicious/noDoubleEquals",
         ))),
         code_description: None,
@@ -1214,13 +1423,13 @@ async fn pull_biome_quick_fixes_ignore_unsafe() -> Result<()> {
 
     server.open_document("if(a == 0) {}").await?;
 
-    let res: lsp::CodeActionResponse = server
+    let res: CodeActionResponse = server
         .request(
             "textDocument/codeAction",
             "pull_code_actions",
-            lsp::CodeActionParams {
+            CodeActionParams {
                 text_document: TextDocumentIdentifier {
-                    uri: url!("document.js"),
+                    uri: uri!("document.js"),
                 },
                 range: Range {
                     start: Position {
@@ -1232,15 +1441,15 @@ async fn pull_biome_quick_fixes_ignore_unsafe() -> Result<()> {
                         character: 6,
                     },
                 },
-                context: lsp::CodeActionContext {
+                context: CodeActionContext {
                     diagnostics: vec![unsafe_fixable.clone()],
-                    only: Some(vec![lsp::CodeActionKind::new("quickfix.biome")]),
+                    only: Some(vec![CodeActionKind::new("quickfix.biome")]),
                     ..Default::default()
                 },
                 work_done_progress_params: WorkDoneProgressParams {
                     work_done_token: None,
                 },
-                partial_result_params: lsp::PartialResultParams {
+                partial_result_params: PartialResultParams {
                     partial_result_token: None,
                 },
             },
@@ -1273,13 +1482,13 @@ async fn pull_biome_quick_fixes() -> Result<()> {
 
     server.open_document("if(a === -0) {}").await?;
 
-    let res: lsp::CodeActionResponse = server
+    let res: CodeActionResponse = server
         .request(
             "textDocument/codeAction",
             "pull_code_actions",
-            lsp::CodeActionParams {
+            CodeActionParams {
                 text_document: TextDocumentIdentifier {
-                    uri: url!("document.js"),
+                    uri: uri!("document.js"),
                 },
                 range: Range {
                     start: Position {
@@ -1291,9 +1500,9 @@ async fn pull_biome_quick_fixes() -> Result<()> {
                         character: 10,
                     },
                 },
-                context: lsp::CodeActionContext {
+                context: CodeActionContext {
                     diagnostics: vec![fixable_diagnostic(0)?],
-                    only: Some(vec![lsp::CodeActionKind::new(
+                    only: Some(vec![CodeActionKind::new(
                         "quickfix.biome.suspicious.noCompareNegZero",
                     )]),
                     ..Default::default()
@@ -1301,7 +1510,7 @@ async fn pull_biome_quick_fixes() -> Result<()> {
                 work_done_progress_params: WorkDoneProgressParams {
                     work_done_token: None,
                 },
-                partial_result_params: lsp::PartialResultParams {
+                partial_result_params: PartialResultParams {
                     partial_result_token: None,
                 },
             },
@@ -1311,7 +1520,7 @@ async fn pull_biome_quick_fixes() -> Result<()> {
 
     let mut changes = HashMap::default();
     changes.insert(
-        url!("document.js"),
+        uri!("document.js"),
         vec![TextEdit {
             range: Range {
                 start: Position {
@@ -1327,13 +1536,13 @@ async fn pull_biome_quick_fixes() -> Result<()> {
         }],
     );
 
-    let expected_code_action = lsp::CodeActionOrCommand::CodeAction(lsp::CodeAction {
+    let expected_code_action = CodeActionOrCommand::CodeAction(CodeAction {
         title: String::from("Replace -0 with 0"),
-        kind: Some(lsp::CodeActionKind::new(
+        kind: Some(CodeActionKind::new(
             "quickfix.biome.suspicious.noCompareNegZero",
         )),
         diagnostics: Some(vec![fixable_diagnostic(0)?]),
-        edit: Some(lsp::WorkspaceEdit {
+        edit: Some(WorkspaceEdit {
             changes: Some(changes),
             document_changes: None,
             change_annotations: None,
@@ -1361,7 +1570,7 @@ async fn pull_quick_fixes_include_unsafe() -> Result<()> {
     let (stream, sink) = client.split();
     let mut server = Server::new(service);
 
-    let unsafe_fixable = lsp::Diagnostic {
+    let unsafe_fixable = Diagnostic {
         range: Range {
             start: Position {
                 line: 0,
@@ -1372,8 +1581,8 @@ async fn pull_quick_fixes_include_unsafe() -> Result<()> {
                 character: 9,
             },
         },
-        severity: Some(lsp::DiagnosticSeverity::ERROR),
-        code: Some(lsp::NumberOrString::String(String::from(
+        severity: Some(DiagnosticSeverity::ERROR),
+        code: Some(NumberOrString::String(String::from(
             "lint/suspicious/noDoubleEquals",
         ))),
         code_description: None,
@@ -1392,13 +1601,13 @@ async fn pull_quick_fixes_include_unsafe() -> Result<()> {
 
     server.open_document("if(a == 0) {}").await?;
 
-    let res: lsp::CodeActionResponse = server
+    let res: CodeActionResponse = server
         .request(
             "textDocument/codeAction",
             "pull_code_actions",
-            lsp::CodeActionParams {
+            CodeActionParams {
                 text_document: TextDocumentIdentifier {
-                    uri: url!("document.js"),
+                    uri: uri!("document.js"),
                 },
                 range: Range {
                     start: Position {
@@ -1410,7 +1619,7 @@ async fn pull_quick_fixes_include_unsafe() -> Result<()> {
                         character: 6,
                     },
                 },
-                context: lsp::CodeActionContext {
+                context: CodeActionContext {
                     diagnostics: vec![unsafe_fixable.clone()],
                     only: Some(vec![]),
                     ..Default::default()
@@ -1418,7 +1627,7 @@ async fn pull_quick_fixes_include_unsafe() -> Result<()> {
                 work_done_progress_params: WorkDoneProgressParams {
                     work_done_token: None,
                 },
-                partial_result_params: lsp::PartialResultParams {
+                partial_result_params: PartialResultParams {
                     partial_result_token: None,
                 },
             },
@@ -1428,7 +1637,7 @@ async fn pull_quick_fixes_include_unsafe() -> Result<()> {
 
     let mut changes = HashMap::default();
     changes.insert(
-        url!("document.js"),
+        uri!("document.js"),
         vec![TextEdit {
             range: Range {
                 start: Position {
@@ -1444,13 +1653,13 @@ async fn pull_quick_fixes_include_unsafe() -> Result<()> {
         }],
     );
 
-    let expected_code_action = lsp::CodeActionOrCommand::CodeAction(lsp::CodeAction {
-        title: String::from("Use ==="),
-        kind: Some(lsp::CodeActionKind::new(
+    let expected_code_action = CodeActionOrCommand::CodeAction(CodeAction {
+        title: String::from("Use === instead."),
+        kind: Some(CodeActionKind::new(
             "quickfix.biome.suspicious.noDoubleEquals",
         )),
         diagnostics: Some(vec![unsafe_fixable.clone()]),
-        edit: Some(lsp::WorkspaceEdit {
+        edit: Some(WorkspaceEdit {
             changes: Some(changes),
             document_changes: None,
             change_annotations: None,
@@ -1463,7 +1672,7 @@ async fn pull_quick_fixes_include_unsafe() -> Result<()> {
 
     let mut suppression_changes = HashMap::default();
     suppression_changes.insert(
-        url!("document.js"),
+        uri!("document.js"),
         vec![TextEdit {
             range: Range {
                 start: Position {
@@ -1481,27 +1690,24 @@ async fn pull_quick_fixes_include_unsafe() -> Result<()> {
         }],
     );
 
-    let expected_inline_suppression_action =
-        lsp::CodeActionOrCommand::CodeAction(lsp::CodeAction {
-            title: String::from("Suppress rule lint/suspicious/noDoubleEquals for this line."),
-            kind: Some(lsp::CodeActionKind::new(
-                "quickfix.suppressRule.inline.biome",
-            )),
-            diagnostics: Some(vec![unsafe_fixable.clone()]),
-            edit: Some(lsp::WorkspaceEdit {
-                changes: Some(suppression_changes),
-                document_changes: None,
-                change_annotations: None,
-            }),
-            command: None,
-            is_preferred: None,
-            disabled: None,
-            data: None,
-        });
+    let expected_inline_suppression_action = CodeActionOrCommand::CodeAction(CodeAction {
+        title: String::from("Suppress rule lint/suspicious/noDoubleEquals for this line."),
+        kind: Some(CodeActionKind::new("quickfix.suppressRule.inline.biome")),
+        diagnostics: Some(vec![unsafe_fixable.clone()]),
+        edit: Some(WorkspaceEdit {
+            changes: Some(suppression_changes),
+            document_changes: None,
+            change_annotations: None,
+        }),
+        command: None,
+        is_preferred: None,
+        disabled: None,
+        data: None,
+    });
 
     let mut top_level_changes = HashMap::default();
     top_level_changes.insert(
-        url!("document.js"),
+        uri!("document.js"),
         vec![TextEdit {
             range: Range {
                 start: Position {
@@ -1519,23 +1725,20 @@ async fn pull_quick_fixes_include_unsafe() -> Result<()> {
         }],
     );
 
-    let expected_toplevel_suppression_action =
-        lsp::CodeActionOrCommand::CodeAction(lsp::CodeAction {
-            title: String::from("Suppress rule lint/suspicious/noDoubleEquals for the whole file."),
-            kind: Some(lsp::CodeActionKind::new(
-                "quickfix.suppressRule.topLevel.biome",
-            )),
-            diagnostics: Some(vec![unsafe_fixable]),
-            edit: Some(lsp::WorkspaceEdit {
-                changes: Some(top_level_changes),
-                document_changes: None,
-                change_annotations: None,
-            }),
-            command: None,
-            is_preferred: None,
-            disabled: None,
-            data: None,
-        });
+    let expected_toplevel_suppression_action = CodeActionOrCommand::CodeAction(CodeAction {
+        title: String::from("Suppress rule lint/suspicious/noDoubleEquals for the whole file."),
+        kind: Some(CodeActionKind::new("quickfix.suppressRule.topLevel.biome")),
+        diagnostics: Some(vec![unsafe_fixable]),
+        edit: Some(WorkspaceEdit {
+            changes: Some(top_level_changes),
+            document_changes: None,
+            change_annotations: None,
+        }),
+        command: None,
+        is_preferred: None,
+        disabled: None,
+        data: None,
+    });
 
     assert_eq!(
         res,
@@ -1573,7 +1776,7 @@ async fn pull_diagnostics_for_rome_json() -> Result<()> {
         }
     }"#;
     server
-        .open_named_document(incorrect_config, url!("biome.json"), "json")
+        .open_named_document(incorrect_config, uri!("biome.json"), "json")
         .await?;
 
     let notification = wait_for_notification(&mut receiver, |n| n.is_publish_diagnostics()).await;
@@ -1582,9 +1785,9 @@ async fn pull_diagnostics_for_rome_json() -> Result<()> {
         notification,
         Some(ServerNotification::PublishDiagnostics(
             PublishDiagnosticsParams {
-                uri: url!("biome.json"),
+                uri: uri!("biome.json"),
                 version: Some(0),
-                diagnostics: vec![lsp::Diagnostic {
+                diagnostics: vec![Diagnostic {
                     range: Range {
                         start: Position {
                             line: 2,
@@ -1595,8 +1798,8 @@ async fn pull_diagnostics_for_rome_json() -> Result<()> {
                             character: 34,
                         },
                     },
-                    severity: Some(lsp::DiagnosticSeverity::ERROR),
-                    code: Some(lsp::NumberOrString::String(String::from("deserialize",))),
+                    severity: Some(DiagnosticSeverity::ERROR),
+                    code: Some(NumberOrString::String(String::from("deserialize",))),
                     code_description: None,
                     source: Some(String::from("biome")),
                     message: String::from("Found an unknown value `magic`.",),
@@ -1631,12 +1834,9 @@ async fn plugin_load_error_show_message() -> Result<()> {
 
     const INVALID_PLUGIN_CONTENT: &[u8] = br#"foo"#;
 
+    fs.insert(to_utf8_file_path_buf(uri!("biome.json")), config);
     fs.insert(
-        Utf8PathBuf::from_path_buf(url!("biome.json").to_file_path().unwrap()).unwrap(),
-        config,
-    );
-    fs.insert(
-        Utf8PathBuf::from_path_buf(url!("plugin").to_file_path().unwrap()).unwrap(),
+        to_utf8_file_path_buf(uri!("plugin")),
         INVALID_PLUGIN_CONTENT,
     );
 
@@ -1656,7 +1856,7 @@ async fn plugin_load_error_show_message() -> Result<()> {
 
     let incorrect_config = r#"a {colr: blue;}"#;
     server
-        .open_named_document(incorrect_config, url!("document.css"), "css")
+        .open_named_document(incorrect_config, uri!("document.css"), "css")
         .await?;
 
     let notification = wait_for_notification(&mut receiver, |n| n.is_show_message()).await;
@@ -1686,10 +1886,7 @@ async fn pull_diagnostics_for_css_files() -> Result<()> {
         }
     }"#;
 
-    fs.insert(
-        Utf8PathBuf::from_path_buf(url!("biome.json").to_file_path().unwrap()).unwrap(),
-        config,
-    );
+    fs.insert(to_utf8_file_path_buf(uri!("biome.json")), config);
 
     let factory = ServerFactory::new_with_fs(Box::new(fs));
     let (service, client) = factory.create().into_inner();
@@ -1707,7 +1904,7 @@ async fn pull_diagnostics_for_css_files() -> Result<()> {
 
     let incorrect_config = r#"a {colr: blue;}"#;
     server
-        .open_named_document(incorrect_config, url!("document.css"), "css")
+        .open_named_document(incorrect_config, uri!("document.css"), "css")
         .await?;
 
     let notification = wait_for_notification(&mut receiver, |n| n.is_publish_diagnostics()).await;
@@ -1716,9 +1913,9 @@ async fn pull_diagnostics_for_css_files() -> Result<()> {
         notification,
         Some(ServerNotification::PublishDiagnostics(
             PublishDiagnosticsParams {
-                uri: url!("document.css"),
+                uri: uri!("document.css"),
                 version: Some(0),
-                diagnostics: vec![lsp::Diagnostic {
+                diagnostics: vec![Diagnostic {
                     range: Range {
                         start: Position {
                             line: 0,
@@ -1729,13 +1926,12 @@ async fn pull_diagnostics_for_css_files() -> Result<()> {
                             character: 7,
                         },
                     },
-                    severity: Some(lsp::DiagnosticSeverity::ERROR),
-                    code: Some(lsp::NumberOrString::String(String::from(
+                    severity: Some(DiagnosticSeverity::ERROR),
+                    code: Some(NumberOrString::String(String::from(
                         "lint/correctness/noUnknownProperty"
                     ))),
                     code_description: Some(CodeDescription {
-                        href: Url::parse("https://biomejs.dev/linter/rules/no-unknown-property")
-                            .unwrap()
+                        href: "https://biomejs.dev/linter/rules/no-unknown-property".parse()?
                     }),
                     source: Some(String::from("biome")),
                     message: String::from("Unknown property is not allowed.",),
@@ -1774,7 +1970,7 @@ async fn no_code_actions_for_ignored_json_files() -> Result<()> {
     server
         .open_named_document(
             incorrect_config,
-            url!("./node_modules/preact/package.json"),
+            uri!("./node_modules/preact/package.json"),
             "json",
         )
         .await?;
@@ -1785,19 +1981,19 @@ async fn no_code_actions_for_ignored_json_files() -> Result<()> {
         notification,
         Some(ServerNotification::PublishDiagnostics(
             PublishDiagnosticsParams {
-                uri: url!("./node_modules/preact/package.json"),
+                uri: uri!("./node_modules/preact/package.json"),
                 version: Some(0),
                 diagnostics: vec![],
             }
         ))
     );
-    let res: lsp::CodeActionResponse = server
+    let res: CodeActionResponse = server
         .request(
             "textDocument/codeAction",
             "pull_code_actions",
-            lsp::CodeActionParams {
+            CodeActionParams {
                 text_document: TextDocumentIdentifier {
-                    uri: url!("./node_modules/preact/package.json"),
+                    uri: uri!("./node_modules/preact/package.json"),
                 },
                 range: Range {
                     start: Position {
@@ -1809,14 +2005,14 @@ async fn no_code_actions_for_ignored_json_files() -> Result<()> {
                         character: 7,
                     },
                 },
-                context: lsp::CodeActionContext {
+                context: CodeActionContext {
                     diagnostics: vec![],
                     ..Default::default()
                 },
                 work_done_progress_params: WorkDoneProgressParams {
                     work_done_token: None,
                 },
-                partial_result_params: lsp::PartialResultParams {
+                partial_result_params: PartialResultParams {
                     partial_result_token: None,
                 },
             },
@@ -1853,19 +2049,20 @@ async fn pull_code_actions_with_import_sorting() -> Result<()> {
 import z from "zod";
 import { test } from "./test";
 import { describe } from "node:test";
+export { z, test, describe };
 
 if(a === -0) {}
 "#,
         )
         .await?;
 
-    let res: lsp::CodeActionResponse = server
+    let res: CodeActionResponse = server
         .request(
             "textDocument/codeAction",
             "pull_code_actions",
-            lsp::CodeActionParams {
+            CodeActionParams {
                 text_document: TextDocumentIdentifier {
-                    uri: url!("document.js"),
+                    uri: uri!("document.js"),
                 },
                 range: Range {
                     start: Position {
@@ -1877,14 +2074,14 @@ if(a === -0) {}
                         character: 10,
                     },
                 },
-                context: lsp::CodeActionContext {
+                context: CodeActionContext {
                     diagnostics: vec![fixable_diagnostic(0)?],
                     ..Default::default()
                 },
                 work_done_progress_params: WorkDoneProgressParams {
                     work_done_token: None,
                 },
-                partial_result_params: lsp::PartialResultParams {
+                partial_result_params: PartialResultParams {
                     partial_result_token: None,
                 },
             },
@@ -1894,7 +2091,7 @@ if(a === -0) {}
 
     let mut changes = HashMap::default();
     changes.insert(
-        url!("document.js"),
+        uri!("document.js"),
         vec![
             TextEdit {
                 range: Range {
@@ -1977,11 +2174,11 @@ if(a === -0) {}
         ],
     );
 
-    let expected_code_action = lsp::CodeActionOrCommand::CodeAction(lsp::CodeAction {
+    let expected_code_action = CodeActionOrCommand::CodeAction(CodeAction {
         title: String::from("Organize Imports (Biome)"),
-        kind: Some(lsp::CodeActionKind::new("source.organizeImports.biome")),
+        kind: Some(CodeActionKind::new("source.organizeImports.biome")),
         diagnostics: None,
-        edit: Some(lsp::WorkspaceEdit {
+        edit: Some(WorkspaceEdit {
             changes: Some(changes),
             document_changes: None,
             change_annotations: None,
@@ -1994,7 +2191,7 @@ if(a === -0) {}
 
     let mut top_level_changes = HashMap::default();
     top_level_changes.insert(
-        url!("document.js"),
+        uri!("document.js"),
         vec![TextEdit {
             range: Range {
                 start: Position {
@@ -2014,7 +2211,7 @@ if(a === -0) {}
 
     let mut inline_changes = HashMap::default();
     inline_changes.insert(
-        url!("document.js"),
+        uri!("document.js"),
         vec![TextEdit {
             range: Range {
                 start: Position {
@@ -2032,33 +2229,26 @@ if(a === -0) {}
         }],
     );
 
-    let expected_toplevel_suppression_action =
-        lsp::CodeActionOrCommand::CodeAction(lsp::CodeAction {
-            title: String::from(
-                "Suppress action assist/source/organizeImports for the whole file.",
-            ),
-            kind: Some(lsp::CodeActionKind::new(
-                "quickfix.suppressRule.topLevel.biome",
-            )),
-            diagnostics: None,
-            edit: Some(lsp::WorkspaceEdit {
-                changes: Some(top_level_changes),
-                document_changes: None,
-                change_annotations: None,
-            }),
-            command: None,
-            is_preferred: None,
-            disabled: None,
-            data: None,
-        });
-
-    let expected_line_suppression_action = lsp::CodeActionOrCommand::CodeAction(lsp::CodeAction {
-        title: String::from("Suppress action assist/source/organizeImports for this line."),
-        kind: Some(lsp::CodeActionKind::new(
-            "quickfix.suppressRule.inline.biome",
-        )),
+    let expected_toplevel_suppression_action = CodeActionOrCommand::CodeAction(CodeAction {
+        title: String::from("Suppress action assist/source/organizeImports for the whole file."),
+        kind: Some(CodeActionKind::new("quickfix.suppressRule.topLevel.biome")),
         diagnostics: None,
-        edit: Some(lsp::WorkspaceEdit {
+        edit: Some(WorkspaceEdit {
+            changes: Some(top_level_changes),
+            document_changes: None,
+            change_annotations: None,
+        }),
+        command: None,
+        is_preferred: None,
+        disabled: None,
+        data: None,
+    });
+
+    let expected_line_suppression_action = CodeActionOrCommand::CodeAction(CodeAction {
+        title: String::from("Suppress action assist/source/organizeImports for this line."),
+        kind: Some(CodeActionKind::new("quickfix.suppressRule.inline.biome")),
+        diagnostics: None,
+        edit: Some(WorkspaceEdit {
             changes: Some(inline_changes),
             document_changes: None,
             change_annotations: None,
@@ -2115,10 +2305,7 @@ async fn does_not_pull_action_for_disabled_rule_in_override_issue_2782() -> Resu
     ]
 }"#;
 
-    fs.insert(
-        Utf8PathBuf::from_path_buf(url!("biome.json").to_file_path().unwrap()).unwrap(),
-        config,
-    );
+    fs.insert(to_utf8_file_path_buf(uri!("biome.json")), config);
 
     let factory = ServerFactory::new_with_fs(Box::new(fs));
     let (service, client) = factory.create().into_inner();
@@ -2131,7 +2318,7 @@ async fn does_not_pull_action_for_disabled_rule_in_override_issue_2782() -> Resu
     server.initialize().await?;
     server.initialized().await?;
     server
-        .open_named_document(config, url!("biome.json"), "json")
+        .open_named_document(config, uri!("biome.json"), "json")
         .await?;
     server
         .open_named_document(
@@ -2140,20 +2327,20 @@ async fn does_not_pull_action_for_disabled_rule_in_override_issue_2782() -> Resu
 	B,
 	C,
 }"#,
-            url!("test.ts"),
+            uri!("test.ts"),
             "typescript",
         )
         .await?;
 
     server.load_configuration().await?;
 
-    let res: lsp::CodeActionResponse = server
+    let res: CodeActionResponse = server
         .request(
             "textDocument/codeAction",
             "pull_code_actions",
-            lsp::CodeActionParams {
+            CodeActionParams {
                 text_document: TextDocumentIdentifier {
-                    uri: url!("test.ts"),
+                    uri: uri!("test.ts"),
                 },
                 range: Range {
                     start: Position {
@@ -2165,9 +2352,9 @@ async fn does_not_pull_action_for_disabled_rule_in_override_issue_2782() -> Resu
                         character: 10,
                     },
                 },
-                context: lsp::CodeActionContext {
+                context: CodeActionContext {
                     diagnostics: vec![fixable_diagnostic(0)?],
-                    only: Some(vec![lsp::CodeActionKind::new(
+                    only: Some(vec![CodeActionKind::new(
                         "quickfix.biome.style.useEnumInitializers",
                     )]),
                     ..Default::default()
@@ -2175,7 +2362,7 @@ async fn does_not_pull_action_for_disabled_rule_in_override_issue_2782() -> Resu
                 work_done_progress_params: WorkDoneProgressParams {
                     work_done_token: None,
                 },
-                partial_result_params: lsp::PartialResultParams {
+                partial_result_params: PartialResultParams {
                     partial_result_token: None,
                 },
             },
@@ -2210,13 +2397,13 @@ async fn pull_refactors() -> Result<()> {
         .open_document("let variable = \"value\"; func(variable);")
         .await?;
 
-    let res: lsp::CodeActionResponse = server
+    let res: CodeActionResponse = server
         .request(
             "textDocument/codeAction",
             "pull_code_actions",
-            lsp::CodeActionParams {
+            CodeActionParams {
                 text_document: TextDocumentIdentifier {
-                    uri: url!("document.js"),
+                    uri: uri!("document.js"),
                 },
                 range: Range {
                     start: Position {
@@ -2228,15 +2415,15 @@ async fn pull_refactors() -> Result<()> {
                         character: 7,
                     },
                 },
-                context: lsp::CodeActionContext {
+                context: CodeActionContext {
                     diagnostics: vec![],
-                    only: Some(vec![lsp::CodeActionKind::REFACTOR]),
+                    only: Some(vec![CodeActionKind::REFACTOR]),
                     ..Default::default()
                 },
                 work_done_progress_params: WorkDoneProgressParams {
                     work_done_token: None,
                 },
-                partial_result_params: lsp::PartialResultParams {
+                partial_result_params: PartialResultParams {
                     partial_result_token: None,
                 },
             },
@@ -2247,7 +2434,7 @@ async fn pull_refactors() -> Result<()> {
     let mut changes = HashMap::default();
 
     changes.insert(
-        url!("document.js"),
+        uri!("document.js"),
         vec![
             TextEdit {
                 range: Range {
@@ -2278,11 +2465,11 @@ async fn pull_refactors() -> Result<()> {
         ],
     );
 
-    let _expected_action = lsp::CodeActionOrCommand::CodeAction(lsp::CodeAction {
+    let _expected_action = CodeActionOrCommand::CodeAction(CodeAction {
         title: String::from("Inline variable"),
-        kind: Some(lsp::CodeActionKind::new("refactor.inline.biome")),
+        kind: Some(CodeActionKind::new("refactor.inline.biome")),
         diagnostics: None,
-        edit: Some(lsp::WorkspaceEdit {
+        edit: Some(WorkspaceEdit {
             changes: Some(changes),
             document_changes: None,
             change_annotations: None,
@@ -2320,13 +2507,13 @@ async fn pull_fix_all() -> Result<()> {
         .open_document("if(a === -0) {}\nif(a === -0) {}\nif(a === -0) {}")
         .await?;
 
-    let res: lsp::CodeActionResponse = server
+    let res: CodeActionResponse = server
         .request(
             "textDocument/codeAction",
             "pull_code_actions",
-            lsp::CodeActionParams {
+            CodeActionParams {
                 text_document: TextDocumentIdentifier {
-                    uri: url!("document.js"),
+                    uri: uri!("document.js"),
                 },
                 range: Range {
                     start: Position {
@@ -2338,19 +2525,19 @@ async fn pull_fix_all() -> Result<()> {
                         character: 7,
                     },
                 },
-                context: lsp::CodeActionContext {
+                context: CodeActionContext {
                     diagnostics: vec![
                         fixable_diagnostic(0)?,
                         fixable_diagnostic(1)?,
                         fixable_diagnostic(2)?,
                     ],
-                    only: Some(vec![lsp::CodeActionKind::new("source.fixAll")]),
+                    only: Some(vec![CodeActionKind::new("source.fixAll")]),
                     ..Default::default()
                 },
                 work_done_progress_params: WorkDoneProgressParams {
                     work_done_token: None,
                 },
-                partial_result_params: lsp::PartialResultParams {
+                partial_result_params: PartialResultParams {
                     partial_result_token: None,
                 },
             },
@@ -2361,7 +2548,7 @@ async fn pull_fix_all() -> Result<()> {
     let mut changes = HashMap::default();
 
     changes.insert(
-        url!("document.js"),
+        uri!("document.js"),
         vec![TextEdit {
             range: Range {
                 start: Position {
@@ -2377,15 +2564,15 @@ async fn pull_fix_all() -> Result<()> {
         }],
     );
 
-    let expected_action = lsp::CodeActionOrCommand::CodeAction(lsp::CodeAction {
+    let expected_action = CodeActionOrCommand::CodeAction(CodeAction {
         title: String::from("Fix all auto-fixable issues"),
-        kind: Some(lsp::CodeActionKind::new("source.fixAll.biome")),
+        kind: Some(CodeActionKind::new("source.fixAll.biome")),
         diagnostics: Some(vec![
             fixable_diagnostic(0)?,
             fixable_diagnostic(1)?,
             fixable_diagnostic(2)?,
         ]),
-        edit: Some(lsp::WorkspaceEdit {
+        edit: Some(WorkspaceEdit {
             changes: Some(changes),
             document_changes: None,
             change_annotations: None,
@@ -2450,13 +2637,15 @@ isSpreadAssignment;
 
     // `open_project()` will return an existing key if called with a path
     // for an existing project.
-    let project_key = server
+    let OpenProjectResult { project_key, .. } = server
         .request(
             "biome/open_project",
             "open_project",
             OpenProjectParams {
                 path: BiomePath::new(""),
                 open_uninitialized: true,
+                skip_rules: None,
+                only_rules: None,
             },
         )
         .await?
@@ -2468,10 +2657,7 @@ isSpreadAssignment;
             "get_file_content",
             GetFileContentParams {
                 project_key,
-                path: BiomePath::new(
-                    Utf8PathBuf::from_path_buf(url!("document.js").to_file_path().unwrap())
-                        .unwrap(),
-                ),
+                path: BiomePath::try_from(uri!("document.js").to_file_path().unwrap()).unwrap(),
             },
         )
         .await?
@@ -2512,7 +2698,7 @@ async fn format_with_syntax_errors() -> Result<()> {
             "formatting",
             DocumentFormattingParams {
                 text_document: TextDocumentIdentifier {
-                    uri: url!("document.js"),
+                    uri: uri!("document.js"),
                 },
                 options: FormattingOptions {
                     tab_size: 4,
@@ -2558,7 +2744,7 @@ async fn format_jsx_in_javascript_file() -> Result<()> {
             "textDocument/didOpen",
             DidOpenTextDocumentParams {
                 text_document: TextDocumentItem {
-                    uri: url!("document"),
+                    uri: uri!("document"),
                     language_id: String::from("javascript"),
                     version: 0,
                     text: String::from("const f  =  () => <div/>;"),
@@ -2573,7 +2759,7 @@ async fn format_jsx_in_javascript_file() -> Result<()> {
             "formatting",
             DocumentFormattingParams {
                 text_document: TextDocumentIdentifier {
-                    uri: url!("document"),
+                    uri: uri!("document"),
                 },
                 options: FormattingOptions::default(),
                 work_done_progress_params: WorkDoneProgressParams {
@@ -2592,7 +2778,7 @@ async fn format_jsx_in_javascript_file() -> Result<()> {
             "textDocument/didClose",
             DidCloseTextDocumentParams {
                 text_document: TextDocumentIdentifier {
-                    uri: url!("document"),
+                    uri: uri!("document"),
                 },
             },
         )
@@ -2615,10 +2801,7 @@ async fn does_not_format_ignored_files() -> Result<()> {
         }
     }"#;
 
-    fs.insert(
-        Utf8PathBuf::from_path_buf(url!("biome.json").to_file_path().unwrap()).unwrap(),
-        config,
-    );
+    fs.insert(to_utf8_file_path_buf(uri!("biome.json")), config);
 
     let factory = ServerFactory::new_with_fs(Box::new(fs));
     let (service, client) = factory.create().into_inner();
@@ -2632,11 +2815,11 @@ async fn does_not_format_ignored_files() -> Result<()> {
     server.initialized().await?;
 
     server
-        .open_named_document(config, url!("biome.json"), "json")
+        .open_named_document(config, uri!("biome.json"), "json")
         .await?;
 
     server
-        .open_named_document("statement (   );", url!("document.js"), "javascript")
+        .open_named_document("statement (   );", uri!("document.js"), "javascript")
         .await?;
 
     server.load_configuration().await?;
@@ -2647,7 +2830,7 @@ async fn does_not_format_ignored_files() -> Result<()> {
             "formatting",
             DocumentFormattingParams {
                 text_document: TextDocumentIdentifier {
-                    uri: url!("document.js"),
+                    uri: uri!("document.js"),
                 },
                 options: FormattingOptions {
                     tab_size: 4,
@@ -2698,14 +2881,14 @@ async fn pull_diagnostics_from_manifest() -> Result<()> {
         }
     }"#;
     server
-        .open_named_document(config, url!("biome.json"), "json")
+        .open_named_document(config, uri!("biome.json"), "json")
         .await?;
 
     let manifest = r#"{
         "dependencies": { "react": "latest" }
     }"#;
     server
-        .open_named_document(manifest, url!("package.json"), "json")
+        .open_named_document(manifest, uri!("package.json"), "json")
         .await?;
 
     server.load_configuration().await?;
@@ -2720,9 +2903,9 @@ async fn pull_diagnostics_from_manifest() -> Result<()> {
         notification,
         Some(ServerNotification::PublishDiagnostics(
             PublishDiagnosticsParams {
-                uri: url!("document.js"),
+                uri: uri!("document.js"),
                 version: Some(0),
-                diagnostics: vec![lsp::Diagnostic {
+                diagnostics: vec![Diagnostic {
                     range: Range {
                         start: Position {
                             line: 0,
@@ -2733,21 +2916,20 @@ async fn pull_diagnostics_from_manifest() -> Result<()> {
                             character: 7,
                         },
                     },
-                    severity: Some(lsp::DiagnosticSeverity::ERROR),
-                    code: Some(lsp::NumberOrString::String(String::from(
+                    severity: Some(DiagnosticSeverity::ERROR),
+                    code: Some(NumberOrString::String(String::from(
                         "lint/suspicious/noDoubleEquals",
                     ))),
                     code_description: Some(CodeDescription {
-                        href: Url::parse("https://biomejs.dev/linter/rules/no-double-equals")
-                            .unwrap()
+                        href: "https://biomejs.dev/linter/rules/no-double-equals".parse()?
                     }),
                     source: Some(String::from("biome")),
                     message: String::from(
                         "Use === instead of ==.\n== is only allowed when comparing against `null`",
                     ),
-                    related_information: Some(vec![lsp::DiagnosticRelatedInformation {
-                        location: lsp::Location {
-                            uri: url!("untitled-1"),
+                    related_information: Some(vec![DiagnosticRelatedInformation {
+                        location: Location {
+                            uri: uri!("untitled-1"),
                             range: Range {
                                 start: Position {
                                     line: 0,
@@ -2823,7 +3005,7 @@ async fn multiple_projects() -> Result<()> {
         }
     }"#;
     server
-        .open_named_document(config_only_formatter, url!("test_one/biome.json"), "json")
+        .open_named_document(config_only_formatter, uri!("test_one/biome.json"), "json")
         .await?;
 
     let config_only_linter = r#"{
@@ -2835,19 +3017,19 @@ async fn multiple_projects() -> Result<()> {
         }
     }"#;
     server
-        .open_named_document(config_only_linter, url!("test_two/biome.json"), "json")
+        .open_named_document(config_only_linter, uri!("test_two/biome.json"), "json")
         .await?;
 
     // it should add a `;` but no diagnostics
     let file_format_only = r#"debugger"#;
     server
-        .open_named_document(file_format_only, url!("test_one/file.js"), "javascript")
+        .open_named_document(file_format_only, uri!("test_one/file.js"), "javascript")
         .await?;
 
     // it should raise a diagnostic, but no formatting
     let file_lint_only = r#"debugger;\n"#;
     server
-        .open_named_document(file_lint_only, url!("test_two/file.js"), "javascript")
+        .open_named_document(file_lint_only, uri!("test_two/file.js"), "javascript")
         .await?;
 
     let res: Option<Vec<TextEdit>> = server
@@ -2856,7 +3038,7 @@ async fn multiple_projects() -> Result<()> {
             "formatting",
             DocumentFormattingParams {
                 text_document: TextDocumentIdentifier {
-                    uri: url!("test_two/file.js"),
+                    uri: uri!("test_two/file.js"),
                 },
                 options: FormattingOptions {
                     tab_size: 4,
@@ -2885,7 +3067,7 @@ async fn multiple_projects() -> Result<()> {
             "formatting",
             DocumentFormattingParams {
                 text_document: TextDocumentIdentifier {
-                    uri: url!("test_one/file.js"),
+                    uri: uri!("test_one/file.js"),
                 },
                 options: FormattingOptions {
                     tab_size: 4,
@@ -2934,17 +3116,14 @@ async fn pull_source_assist_action() -> Result<()> {
         }
     }"#;
 
-    fs.insert(
-        Utf8PathBuf::from_path_buf(url!("biome.json").to_file_path().unwrap()).unwrap(),
-        config,
-    );
+    fs.insert(to_utf8_file_path_buf(uri!("biome.json")), config);
 
     let factory = ServerFactory::new_with_fs(Box::new(fs));
     let (service, client) = factory.create().into_inner();
     let (stream, sink) = client.split();
     let mut server = Server::new(service);
 
-    let unsafe_fixable = lsp::Diagnostic {
+    let unsafe_fixable = Diagnostic {
         range: Range {
             start: Position {
                 line: 0,
@@ -2955,8 +3134,8 @@ async fn pull_source_assist_action() -> Result<()> {
                 character: 9,
             },
         },
-        severity: Some(lsp::DiagnosticSeverity::ERROR),
-        code: Some(lsp::NumberOrString::String(String::from(
+        severity: Some(DiagnosticSeverity::ERROR),
+        code: Some(NumberOrString::String(String::from(
             "lint/suspicious/noDoubleEquals",
         ))),
         code_description: None,
@@ -2976,18 +3155,18 @@ async fn pull_source_assist_action() -> Result<()> {
     server
         .open_named_document(
             r#"{"zod": true,"lorem": "ipsum","foo": "bar"}"#,
-            url!("file.json"),
+            uri!("file.json"),
             "json",
         )
         .await?;
 
-    let res: lsp::CodeActionResponse = server
+    let res: CodeActionResponse = server
         .request(
             "textDocument/codeAction",
             "pull_code_actions",
-            lsp::CodeActionParams {
+            CodeActionParams {
                 text_document: TextDocumentIdentifier {
-                    uri: url!("file.json"),
+                    uri: uri!("file.json"),
                 },
                 range: Range {
                     start: Position {
@@ -2999,15 +3178,15 @@ async fn pull_source_assist_action() -> Result<()> {
                         character: 15,
                     },
                 },
-                context: lsp::CodeActionContext {
+                context: CodeActionContext {
                     diagnostics: vec![unsafe_fixable.clone()],
-                    only: Some(vec![lsp::CodeActionKind::new("source.biome.useSortedKeys")]),
+                    only: Some(vec![CodeActionKind::new("source.biome.useSortedKeys")]),
                     ..Default::default()
                 },
                 work_done_progress_params: WorkDoneProgressParams {
                     work_done_token: None,
                 },
-                partial_result_params: lsp::PartialResultParams {
+                partial_result_params: PartialResultParams {
                     partial_result_token: None,
                 },
             },
@@ -3016,7 +3195,7 @@ async fn pull_source_assist_action() -> Result<()> {
         .context("codeAction returned None")?;
     let mut changes = HashMap::default();
     changes.insert(
-        url!("file.json"),
+        uri!("file.json"),
         vec![
             TextEdit {
                 range: Range {
@@ -3072,11 +3251,11 @@ async fn pull_source_assist_action() -> Result<()> {
             },
         ],
     );
-    let expected_action = lsp::CodeActionOrCommand::CodeAction(lsp::CodeAction {
+    let expected_action = CodeActionOrCommand::CodeAction(CodeAction {
         title: String::from("They keys of the current object can be sorted."),
-        kind: Some(lsp::CodeActionKind::new("source.biome.useSortedKeys")),
+        kind: Some(CodeActionKind::new("source.biome.useSortedKeys")),
         diagnostics: None,
-        edit: Some(lsp::WorkspaceEdit {
+        edit: Some(WorkspaceEdit {
             changes: Some(changes),
             document_changes: None,
             change_annotations: None,
@@ -3098,7 +3277,7 @@ async fn pull_source_assist_action() -> Result<()> {
 }
 
 #[tokio::test]
-async fn watcher_updates_module_graph() -> Result<()> {
+async fn watcher_updates_module_graph_simple() -> Result<()> {
     const FOO_CONTENT: &str = r#"import { bar } from "./bar.ts";
 
 export function foo() {
@@ -3143,7 +3322,7 @@ export function bar() {
     let mut factory = ServerFactory::new(true, instruction_channel.sender.clone());
 
     let workspace = factory.workspace();
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         watcher.run(workspace.as_ref());
     });
 
@@ -3156,13 +3335,18 @@ export function bar() {
 
     server.initialize().await?;
 
-    let project_key = server
+    let OpenProjectResult {
+        project_key,
+        scan_kind,
+    } = server
         .request(
             "biome/open_project",
             "open_project",
             OpenProjectParams {
                 path: fs.working_directory.clone().into(),
                 open_uninitialized: true,
+                skip_rules: None,
+                only_rules: None,
             },
         )
         .await?
@@ -3178,7 +3362,7 @@ export function bar() {
                 path: None,
                 watch: true,
                 force: false,
-                scan_kind: ScanKind::Project,
+                scan_kind,
             },
         )
         .await?
@@ -3194,10 +3378,10 @@ export function bar() {
                 project_key,
                 path: fs.working_directory.join("foo.ts").into(),
                 categories: RuleCategories::all(),
-                max_diagnostics: 10,
                 only: Vec::new(),
                 skip: Vec::new(),
                 enabled_rules: vec![RuleSelector::Rule("nursery", "noImportCycles")],
+                pull_code_actions: false,
             },
         )
         .await?
@@ -3209,6 +3393,10 @@ export function bar() {
         PrintDescription(&result.diagnostics[0]).to_string(),
         "This import is part of a cycle."
     );
+
+    // On macOS, wait until the fsevents watcher sets up before receiving the first event.
+    #[cfg(target_os = "macos")]
+    std::thread::sleep(Duration::from_secs(1));
 
     clear_notifications!(factory.service_data_rx);
 
@@ -3230,10 +3418,10 @@ export function bar() {
                 project_key,
                 path: fs.working_directory.join("foo.ts").into(),
                 categories: RuleCategories::empty(),
-                max_diagnostics: 10,
                 only: Vec::new(),
                 skip: Vec::new(),
                 enabled_rules: vec![RuleSelector::Rule("nursery", "noImportCycles")],
+                pull_code_actions: false,
             },
         )
         .await?
@@ -3262,10 +3450,10 @@ export function bar() {
                 project_key,
                 path: fs.working_directory.join("foo.ts").into(),
                 categories: RuleCategories::all(),
-                max_diagnostics: 10,
                 only: Vec::new(),
                 skip: Vec::new(),
                 enabled_rules: vec![RuleSelector::Rule("nursery", "noImportCycles")],
+                pull_code_actions: false,
             },
         )
         .await?
@@ -3298,10 +3486,10 @@ export function bar() {
                 project_key,
                 path: fs.working_directory.join("foo.ts").into(),
                 categories: RuleCategories::all(),
-                max_diagnostics: 10,
                 only: Vec::new(),
                 skip: Vec::new(),
                 enabled_rules: vec![RuleSelector::Rule("nursery", "noImportCycles")],
+                pull_code_actions: false,
             },
         )
         .await?
@@ -3356,7 +3544,7 @@ export function bar() {
     let mut factory = ServerFactory::new(true, instruction_channel.sender.clone());
 
     let workspace = factory.workspace();
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         watcher.run(workspace.as_ref());
     });
 
@@ -3369,13 +3557,15 @@ export function bar() {
 
     server.initialize().await?;
 
-    let project_key = server
+    let OpenProjectResult { project_key, .. } = server
         .request(
             "biome/open_project",
             "open_project",
             OpenProjectParams {
                 path: fs.working_directory.clone().into(),
                 open_uninitialized: true,
+                only_rules: None,
+                skip_rules: None,
             },
         )
         .await?
@@ -3407,10 +3597,10 @@ export function bar() {
                 project_key,
                 path: fs.working_directory.join("foo.ts").into(),
                 categories: RuleCategories::all(),
-                max_diagnostics: 10,
                 only: Vec::new(),
                 skip: Vec::new(),
                 enabled_rules: vec![RuleSelector::Rule("nursery", "noImportCycles")],
+                pull_code_actions: false,
             },
         )
         .await?
@@ -3422,6 +3612,11 @@ export function bar() {
         PrintDescription(&result.diagnostics[0]).to_string(),
         "This import is part of a cycle."
     );
+
+    // On Windows, wait until the event has been delivered.
+    // On macOS, wait until the fsevents watcher sets up before receiving the first event.
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    std::thread::sleep(Duration::from_secs(1));
 
     clear_notifications!(factory.service_data_rx);
 
@@ -3447,10 +3642,10 @@ export function bar() {
                 project_key,
                 path: fs.working_directory.join("foo.ts").into(),
                 categories: RuleCategories::empty(),
-                max_diagnostics: 10,
                 only: Vec::new(),
                 skip: Vec::new(),
                 enabled_rules: vec![RuleSelector::Rule("nursery", "noImportCycles")],
+                pull_code_actions: false,
             },
         )
         .await?
@@ -3459,6 +3654,10 @@ export function bar() {
     // ASSERT: Diagnostic should've disappeared because `utils/bar.ts` is no
     //         longer there.
     assert_eq!(result.diagnostics.len(), 0);
+
+    // On Windows, wait until the event has been delivered.
+    #[cfg(target_os = "windows")]
+    std::thread::sleep(Duration::from_secs(1));
 
     // ARRANGE: Move `utils` back.
     clear_notifications!(factory.service_data_rx);
@@ -3484,10 +3683,10 @@ export function bar() {
                 project_key,
                 path: fs.working_directory.join("foo.ts").into(),
                 categories: RuleCategories::all(),
-                max_diagnostics: 10,
                 only: Vec::new(),
                 skip: Vec::new(),
                 enabled_rules: vec![RuleSelector::Rule("nursery", "noImportCycles")],
+                pull_code_actions: false,
             },
         )
         .await?
@@ -3505,3 +3704,104 @@ export function bar() {
 
     Ok(())
 }
+
+// #region MONOREPO TESTS
+
+#[tokio::test]
+#[ignore]
+async fn pull_diagnostics_monorepo() -> Result<()> {
+    let mut fs = MemoryFileSystem::default();
+
+    fs.insert(
+        to_utf8_file_path_buf(uri!("biome.json")),
+        r#"{
+  "root": true,
+  "linter": {
+    "enabled": false
+  }
+}
+"#,
+    );
+    fs.insert(
+        to_utf8_file_path_buf(uri!("packages/lib/biome.json")),
+        r#"{
+  "linter": {
+    "enabled": true
+  }
+}
+"#,
+    );
+    fs.insert(
+        to_utf8_file_path_buf(uri!("file.ts")),
+        r#"const a = 1; a = 2;"#,
+    );
+    fs.insert(
+        to_utf8_file_path_buf(uri!("packages/lib/file.ts")),
+        r#"const a = 1; a = 2;"#,
+    );
+
+    let factory = ServerFactory::new_with_fs(Box::new(fs));
+    let (service, client) = factory.create().into_inner();
+    let (stream, sink) = client.split();
+    let mut server = Server::new(service);
+
+    let (sender, mut receiver) = channel(CHANNEL_BUFFER_SIZE);
+    let reader = tokio::spawn(client_handler(stream, sink, sender));
+
+    server.initialize().await?;
+    server.initialized().await?;
+
+    server.load_configuration().await?;
+
+    server
+        .open_named_document(
+            r#"const a = 1; a = 2;"#,
+            uri!("packages/lib/file.ts"),
+            "typescript",
+        )
+        .await?;
+
+    let notification = wait_for_notification(&mut receiver, |n| n.is_publish_diagnostics()).await;
+    let notification = notification.unwrap();
+    assert_diagnostics_count(&notification, 1);
+    assert_diagnostic_code(&notification, "noConstAssign");
+
+    server.close_document().await?;
+
+    server.shutdown().await?;
+    reader.abort();
+
+    Ok(())
+}
+
+// #endregion
+
+// #region TEST UTILS
+
+fn assert_diagnostic_code(server_notification: &ServerNotification, code: &str) {
+    match server_notification {
+        ServerNotification::PublishDiagnostics(publish) => {
+            assert!(publish.diagnostics.iter().all(|d| {
+                d.code
+                    .as_ref()
+                    .is_some_and(|c| &NumberOrString::String(code.to_string()) == c)
+            }));
+        }
+        ServerNotification::ShowMessage(_) => {
+            panic!("Unexpected notification: {:?}", server_notification);
+        }
+    }
+}
+
+fn assert_diagnostics_count(server_notification: &ServerNotification, expected_count: usize) {
+    match server_notification {
+        ServerNotification::PublishDiagnostics(publish) => {
+            assert_eq!(publish.diagnostics.len(), expected_count)
+        }
+        ServerNotification::ShowMessage(_) => {
+            panic!("Unexpected notification: {:?}", server_notification);
+        }
+    }
+}
+
+// #endregion

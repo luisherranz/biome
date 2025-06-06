@@ -450,6 +450,10 @@ type DebugFormatterIR = fn(
     AnyParse,
     WorkspaceSettingsHandle,
 ) -> Result<String, WorkspaceError>;
+type DebugTypeInfo =
+    fn(&BiomePath, Option<AnyParse>, Arc<ModuleGraph>) -> Result<String, WorkspaceError>;
+type DebugRegisteredTypes = fn(&BiomePath, AnyParse) -> Result<String, WorkspaceError>;
+type DebugSemanticModel = fn(&BiomePath, AnyParse) -> Result<String, WorkspaceError>;
 
 #[derive(Default)]
 pub struct DebugCapabilities {
@@ -459,6 +463,12 @@ pub struct DebugCapabilities {
     pub(crate) debug_control_flow: Option<DebugControlFlow>,
     /// Prints the formatter IR
     pub(crate) debug_formatter_ir: Option<DebugFormatterIR>,
+    /// Prints the type info
+    pub(crate) debug_type_info: Option<DebugTypeInfo>,
+    /// Prints the registered types
+    pub(crate) debug_registered_types: Option<DebugRegisteredTypes>,
+    /// Prints the binding/scope tree of the semantic model
+    pub(crate) debug_semantic_model: Option<DebugSemanticModel>,
 }
 
 #[derive(Debug)]
@@ -466,7 +476,6 @@ pub(crate) struct LintParams<'a> {
     pub(crate) parse: AnyParse,
     pub(crate) workspace: &'a WorkspaceSettingsHandle,
     pub(crate) language: DocumentFileSource,
-    pub(crate) max_diagnostics: u32,
     pub(crate) path: &'a BiomePath,
     pub(crate) only: Vec<RuleSelector>,
     pub(crate) skip: Vec<RuleSelector>,
@@ -476,6 +485,7 @@ pub(crate) struct LintParams<'a> {
     pub(crate) suppression_reason: Option<String>,
     pub(crate) enabled_rules: Vec<RuleSelector>,
     pub(crate) plugins: AnalyzerPluginVec,
+    pub(crate) pull_code_actions: bool,
 }
 
 pub(crate) struct LintResults {
@@ -490,7 +500,7 @@ pub(crate) struct ProcessLint<'a> {
     diagnostics: Vec<biome_diagnostics::serde::Diagnostic>,
     ignores_suppression_comment: bool,
     rules: Option<Cow<'a, Rules>>,
-    max_diagnostics: u32,
+    pull_code_actions: bool,
 }
 
 impl<'a> ProcessLint<'a> {
@@ -509,7 +519,7 @@ impl<'a> ProcessLint<'a> {
                 .settings()
                 .as_ref()
                 .and_then(|settings| settings.as_linter_rules(params.path.as_path())),
-            max_diagnostics: params.max_diagnostics,
+            pull_code_actions: params.pull_code_actions,
         }
     }
 
@@ -543,18 +553,18 @@ impl<'a> ProcessLint<'a> {
                 self.errors += 1;
             }
 
-            if self.diagnostic_count <= self.max_diagnostics {
+            if self.pull_code_actions {
                 for action in signal.actions() {
                     if !action.is_suppression() {
                         diagnostic = diagnostic.add_code_suggestion(action.into());
                     }
                 }
-
-                let error = diagnostic.with_severity(severity);
-
-                self.diagnostics
-                    .push(biome_diagnostics::serde::Diagnostic::new(error));
             }
+
+            let error = diagnostic.with_severity(severity);
+
+            self.diagnostics
+                .push(biome_diagnostics::serde::Diagnostic::new(error));
         }
 
         ControlFlow::<Never>::Continue(())
@@ -1001,6 +1011,14 @@ impl<'a, 'b> LintVisitor<'a, 'b> {
         R: Rule<Query: Queryable<Language = L, Output: Clone>> + 'static,
     {
         let path = self.path.expect("File path");
+
+        let recommended_enabled = self
+            .settings
+            .is_some_and(|settings| settings.linter_recommended_enabled());
+        if !recommended_enabled {
+            return;
+        }
+
         let no_only = self.only.is_some_and(|only| only.is_empty());
         let no_domains = self
             .settings
@@ -1012,13 +1030,16 @@ impl<'a, 'b> LintVisitor<'a, 'b> {
 
         if let Some(manifest) = &self.package_json {
             for domain in R::METADATA.domains {
-                self.analyzer_options
-                    .push_globals(domain.globals().iter().map(|s| Box::from(*s)).collect());
+                let matches_a_dependency = domain
+                    .manifest_dependencies()
+                    .iter()
+                    .any(|(dependency, range)| manifest.matches_dependency(dependency, range));
 
-                for (dependency, range) in domain.manifest_dependencies() {
-                    if manifest.matches_dependency(dependency, range) {
-                        self.enabled_rules.insert(rule_filter);
-                    }
+                if matches_a_dependency {
+                    self.enabled_rules.insert(rule_filter);
+
+                    self.analyzer_options
+                        .push_globals(domain.globals().iter().map(|s| Box::from(*s)).collect());
                 }
             }
         }
@@ -1449,7 +1470,7 @@ impl<'b> AnalyzerVisitorBuilder<'b> {
 
         let package_json = self
             .path
-            .and_then(|path| self.project_layout.get_node_manifest_for_path(path))
+            .and_then(|path| self.project_layout.find_node_manifest_for_path(path))
             .map(|(_, manifest)| manifest);
 
         let mut lint = LintVisitor::new(

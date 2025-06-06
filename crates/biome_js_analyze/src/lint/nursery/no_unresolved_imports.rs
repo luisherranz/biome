@@ -7,6 +7,7 @@ use biome_js_syntax::{
     AnyJsImportClause, AnyJsImportLike, AnyJsNamedImportSpecifier, JsModuleSource, JsSyntaxToken,
 };
 use biome_module_graph::{JsModuleInfo, ModuleGraph, SUPPORTED_EXTENSIONS};
+use biome_resolver::ResolveError;
 use biome_rowan::{AstNode, SyntaxResult, Text, TextRange, TokenText};
 use camino::{Utf8Path, Utf8PathBuf};
 
@@ -49,7 +50,7 @@ declare_lint_rule! {
     /// import { foo } from "./foo.js";
     /// ```
     pub NoUnresolvedImports {
-        version: "next",
+        version: "2.0.0",
         name: "noUnresolvedImports",
         language: "js",
         sources: &[
@@ -63,13 +64,13 @@ declare_lint_rule! {
 pub enum NoUnresolvedImportsState {
     UnresolvedPath {
         range: TextRange,
-        specifier: String,
-        resolve_error: String,
+        specifier: Box<str>,
+        resolve_error: ResolveError,
     },
     UnresolvedSymbol {
         range: TextRange,
-        specifier: String,
-        export_name: String,
+        specifier: Box<str>,
+        export_name: Box<str>,
     },
 }
 
@@ -121,8 +122,8 @@ impl Rule for NoUnresolvedImports {
 
                 return vec![NoUnresolvedImportsState::UnresolvedPath {
                     range: node.syntax().text_trimmed_range(),
-                    specifier: specifier.to_string(),
-                    resolve_error: resolve_error.clone(),
+                    specifier: specifier.as_ref().into(),
+                    resolve_error: *resolve_error,
                 }];
             }
         };
@@ -176,7 +177,7 @@ impl Rule for NoUnresolvedImports {
                     range,
                     markup! {
                         "The "{specifier_kind}" "<Emphasis>{specifier}</Emphasis>
-                        " cannot be resolved: "<Emphasis>{resolve_error}</Emphasis>
+                        " cannot be resolved: "<Emphasis>{resolve_error.to_string()}</Emphasis>
                     },
                 )
                 .note(if specifier_kind == "path" {
@@ -190,7 +191,7 @@ impl Rule for NoUnresolvedImports {
                 })
             }
             NoUnresolvedImportsState::UnresolvedSymbol { export_name, .. }
-                if export_name == "default" =>
+                if export_name.as_ref() == "default" =>
             {
                 let specifier_kind = if specifier.starts_with('.') {
                     "path"
@@ -252,8 +253,8 @@ fn get_unresolved_imports_from_module_source(
             (!has_exported_symbol(&Text::Static("default"), options))
                 .then(|| NoUnresolvedImportsState::UnresolvedSymbol {
                     range,
-                    specifier: options.specifier.to_string(),
-                    export_name: "default".to_string(),
+                    specifier: options.specifier.as_ref().into(),
+                    export_name: "default".into(),
                 })
                 .into_iter()
                 .chain(
@@ -272,8 +273,8 @@ fn get_unresolved_imports_from_module_source(
                             .then(|| {
                                 NoUnresolvedImportsState::UnresolvedSymbol {
                                     range: name.text_trimmed_range(),
-                                    specifier: options.specifier.to_string(),
-                                    export_name: name.text_trimmed().to_string(),
+                                    specifier: options.specifier.as_ref().into(),
+                                    export_name: name.text_trimmed().into(),
                                 }
                             })
                         }),
@@ -285,8 +286,8 @@ fn get_unresolved_imports_from_module_source(
             (!has_exported_symbol(&Text::Static("default"), options))
                 .then(|| NoUnresolvedImportsState::UnresolvedSymbol {
                     range,
-                    specifier: options.specifier.to_string(),
-                    export_name: "default".to_string(),
+                    specifier: options.specifier.as_ref().into(),
+                    export_name: "default".into(),
                 })
                 .into_iter()
                 .collect()
@@ -301,8 +302,8 @@ fn get_unresolved_imports_from_module_source(
                     (!has_exported_symbol(&Text::Borrowed(name.token_text_trimmed()), options))
                         .then(|| NoUnresolvedImportsState::UnresolvedSymbol {
                             range: name.text_trimmed_range(),
-                            specifier: options.specifier.to_string(),
-                            export_name: name.text_trimmed().to_string(),
+                            specifier: options.specifier.as_ref().into(),
+                            export_name: name.text_trimmed().into(),
                         })
                 })
                 .collect()

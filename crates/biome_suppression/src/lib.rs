@@ -2,7 +2,7 @@
 
 use biome_console::fmt::Formatter;
 use biome_console::markup;
-use biome_diagnostics::{Category, Diagnostic, Location, LogCategory, Visit, category};
+use biome_diagnostics::{Category, Diagnostic, Location, LogCategory, Severity, Visit, category};
 use biome_rowan::{TextLen, TextRange, TextSize};
 use std::ops::Add;
 
@@ -34,14 +34,17 @@ pub struct Suppression<'a> {
     pub kind: SuppressionKind,
 
     range: TextRange,
+    reason_range: TextRange,
 }
 
 impl Suppression<'_> {
     pub fn range(&self) -> TextRange {
         self.range
     }
-    // pub fn reason_range(&self) -> TextRange {}
-    // pub fn categories(&self)
+
+    pub fn reason_range(&self) -> TextRange {
+        self.reason_range
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -188,6 +191,10 @@ pub struct SuppressionDiagnostic {
 }
 
 impl Diagnostic for SuppressionDiagnostic {
+    fn severity(&self) -> Severity {
+        Severity::Error
+    }
+
     fn category(&self) -> Option<&'static Category> {
         Some(category!("suppressions/parse"))
     }
@@ -220,6 +227,12 @@ impl Diagnostic for SuppressionDiagnostic {
                     &"A category is mandatory: try lint, format, assist or plugin.",
                 )?;
             }
+            SuppressionDiagnosticKind::MissingReason => {
+                visitor.record_log(
+                    LogCategory::Info,
+                    &"A reason is mandatory: try to explain why the suppression is needed.",
+                )?;
+            }
             SuppressionDiagnosticKind::MissingClosingParen => {}
         }
 
@@ -240,6 +253,7 @@ enum SuppressionDiagnosticKind {
     ParseCategory(String),
     MissingCategory,
     MissingClosingParen,
+    MissingReason,
 }
 
 impl std::fmt::Display for SuppressionDiagnosticKind {
@@ -260,13 +274,19 @@ impl std::fmt::Display for SuppressionDiagnosticKind {
             Self::MissingCategory => {
                 write!(
                     f,
-                    "Incorrect suppression: unexpected token, expected one of ':' or whitespace. Example of suppression: // biome-ignore lint: reason"
+                    "Incorrect suppression: unexpected token, expected one of ':' or whitespace. Example of suppression: // biome-ignore lint: false positive"
                 )
             }
             Self::MissingClosingParen => {
                 write!(
                     f,
-                    "Unexpected token, expected ')'. Example of suppression: // biome-ignore lint: reason"
+                    "Unexpected token, expected ')'. Example of suppression: // biome-ignore lint: false positive"
+                )
+            }
+            Self::MissingReason => {
+                write!(
+                    f,
+                    "Incorrect suppression: missing reason. Example of suppression: // biome-ignore lint: false positive"
                 )
             }
         }
@@ -274,7 +294,7 @@ impl std::fmt::Display for SuppressionDiagnosticKind {
 }
 
 impl biome_console::fmt::Display for SuppressionDiagnosticKind {
-    fn fmt(&self, fmt: &mut biome_console::fmt::Formatter) -> std::io::Result<()> {
+    fn fmt(&self, fmt: &mut Formatter) -> std::io::Result<()> {
         match self {
             Self::MissingColon => write!(
                 fmt,
@@ -289,6 +309,7 @@ impl biome_console::fmt::Display for SuppressionDiagnosticKind {
             Self::MissingClosingParen => {
                 write!(fmt, "Unexpected token, expected ')'.")
             }
+            Self::MissingReason => write!(fmt, "Reason is missing and can't be empty."),
         }
     }
 }
@@ -361,18 +382,27 @@ fn parse_suppression_line(
     }
 
     let reason = line.trim_end();
+
+    if reason.is_empty() {
+        return Err(SuppressionDiagnostic {
+            message: SuppressionDiagnosticKind::MissingReason,
+            span: TextRange::at(range.start(), TextSize::of(line)),
+        });
+    }
+
     Ok(Suppression {
         categories,
         reason,
         kind,
         range,
+        reason_range: TextRange::at(offset_from(base, reason), TextSize::of(reason)),
     })
 }
 
 /// Parse the comment's category part into (category, subcategory)
 ///
 /// category is static, predefined in crates/biome_diagnostics_categories/src/categories.rs
-/// subcategory is dynamic (e.g user defined plugin name)
+/// subcategory is dynamic (e.g., user-defined plugin name)
 ///
 /// # Example
 /// - No category:      `// biome-ignore`                  -> `(None, None)`
@@ -441,7 +471,8 @@ mod tests_suppression_kinds {
                 ],
                 reason: "explanation",
                 kind: SuppressionKind::Classic,
-                range: TextRange::new(TextSize::from(3), TextSize::from(15))
+                range: TextRange::new(TextSize::from(3), TextSize::from(15)),
+                reason_range: TextRange::new(TextSize::from(13), TextSize::from(24))
             })],
         );
     }
@@ -458,7 +489,8 @@ mod tests_suppression_kinds {
                 ],
                 reason: "explanation",
                 kind: SuppressionKind::All,
-                range: TextRange::new(TextSize::from(3), TextSize::from(19))
+                range: TextRange::new(TextSize::from(3), TextSize::from(19)),
+                reason_range: TextRange::new(TextSize::from(13), TextSize::from(24))
             })],
         );
     }
@@ -475,7 +507,8 @@ mod tests_suppression_kinds {
                 ],
                 reason: "explanation",
                 kind: SuppressionKind::RangeStart,
-                range: TextRange::new(TextSize::from(3), TextSize::from(21))
+                range: TextRange::new(TextSize::from(3), TextSize::from(21)),
+                reason_range: TextRange::new(TextSize::from(13), TextSize::from(24))
             })],
         );
     }
@@ -492,7 +525,8 @@ mod tests_suppression_kinds {
                 ],
                 reason: "explanation",
                 kind: SuppressionKind::RangeEnd,
-                range: TextRange::new(TextSize::from(3), TextSize::from(19))
+                range: TextRange::new(TextSize::from(3), TextSize::from(19)),
+                reason_range: TextRange::new(TextSize::from(13), TextSize::from(24))
             })],
         );
     }
@@ -518,7 +552,8 @@ mod tests_biome_ignore_inline {
                 categories: vec![(category!("parse"), None, None)],
                 reason: "explanation1",
                 kind: SuppressionKind::Classic,
-                range: TextRange::new(TextSize::from(3), TextSize::from(15))
+                range: TextRange::new(TextSize::from(3), TextSize::from(15)),
+                reason_range: TextRange::new(TextSize::from(7), TextSize::from(19))
             })],
         );
 
@@ -529,7 +564,8 @@ mod tests_biome_ignore_inline {
                 categories: vec![(category!("parse"), None, None)],
                 reason: "explanation2",
                 kind: SuppressionKind::Classic,
-                range: TextRange::new(TextSize::from(4), TextSize::from(16))
+                range: TextRange::new(TextSize::from(4), TextSize::from(16)),
+                reason_range: TextRange::new(TextSize::from(7), TextSize::from(19))
             })],
         );
 
@@ -544,7 +580,8 @@ mod tests_biome_ignore_inline {
                 categories: vec![(category!("parse"), None, None)],
                 reason: "explanation3",
                 kind: SuppressionKind::Classic,
-                range: TextRange::new(TextSize::from(24), TextSize::from(36))
+                range: TextRange::new(TextSize::from(24), TextSize::from(36)),
+                reason_range: TextRange::new(TextSize::from(7), TextSize::from(19))
             })],
         );
 
@@ -560,7 +597,8 @@ mod tests_biome_ignore_inline {
                 categories: vec![(category!("parse"), None, None)],
                 reason: "explanation4",
                 kind: SuppressionKind::Classic,
-                range: TextRange::new(TextSize::from(50), TextSize::from(62))
+                range: TextRange::new(TextSize::from(50), TextSize::from(62)),
+                reason_range: TextRange::new(TextSize::from(7), TextSize::from(19))
             })],
         );
 
@@ -571,7 +609,8 @@ mod tests_biome_ignore_inline {
                 categories: vec![(category!("lint/plugin"), None, None)],
                 reason: "explanation5",
                 kind: SuppressionKind::Classic,
-                range: TextRange::new(TextSize::from(3), TextSize::from(15))
+                range: TextRange::new(TextSize::from(3), TextSize::from(15)),
+                reason_range: TextRange::new(TextSize::from(13), TextSize::from(25))
             })],
         );
 
@@ -582,7 +621,8 @@ mod tests_biome_ignore_inline {
                 categories: vec![(category!("lint/plugin"), Some("myPlugin"), None)],
                 reason: "explanation6",
                 kind: SuppressionKind::Classic,
-                range: TextRange::new(TextSize::from(3), TextSize::from(15))
+                range: TextRange::new(TextSize::from(3), TextSize::from(15)),
+                reason_range: TextRange::new(TextSize::from(22), TextSize::from(34))
             })],
         );
     }
@@ -594,7 +634,8 @@ mod tests_biome_ignore_inline {
                 categories: vec![(category!("format"), None, None)],
                 reason: "explanation",
                 kind: SuppressionKind::Classic,
-                range: TextRange::new(TextSize::from(3), TextSize::from(15))
+                range: TextRange::new(TextSize::from(3), TextSize::from(15)),
+                reason_range: TextRange::new(TextSize::from(8), TextSize::from(19))
             })],
         );
 
@@ -604,7 +645,8 @@ mod tests_biome_ignore_inline {
                 categories: vec![(category!("format"), None, None)],
                 reason: "explanation",
                 kind: SuppressionKind::Classic,
-                range: TextRange::new(TextSize::from(3), TextSize::from(15))
+                range: TextRange::new(TextSize::from(3), TextSize::from(15)),
+                reason_range: TextRange::new(TextSize::from(8), TextSize::from(19))
             })],
         );
 
@@ -614,7 +656,8 @@ mod tests_biome_ignore_inline {
                 categories: vec![(category!("format"), None, None)],
                 reason: "explanation",
                 kind: SuppressionKind::Classic,
-                range: TextRange::new(TextSize::from(3), TextSize::from(15))
+                range: TextRange::new(TextSize::from(3), TextSize::from(15)),
+                reason_range: TextRange::new(TextSize::from(8), TextSize::from(19))
             })],
         );
     }
@@ -631,7 +674,8 @@ mod tests_biome_ignore_inline {
                 ],
                 reason: "explanation",
                 kind: SuppressionKind::Classic,
-                range: TextRange::new(TextSize::from(3), TextSize::from(15))
+                range: TextRange::new(TextSize::from(3), TextSize::from(15)),
+                reason_range: TextRange::new(TextSize::from(23), TextSize::from(34))
             })],
         );
 
@@ -645,7 +689,8 @@ mod tests_biome_ignore_inline {
                 ],
                 reason: "explanation",
                 kind: SuppressionKind::Classic,
-                range: TextRange::new(TextSize::from(4), TextSize::from(16))
+                range: TextRange::new(TextSize::from(4), TextSize::from(16)),
+                reason_range: TextRange::new(TextSize::from(23), TextSize::from(34))
             })],
         );
 
@@ -663,7 +708,8 @@ mod tests_biome_ignore_inline {
                 ],
                 reason: "explanation",
                 kind: SuppressionKind::Classic,
-                range: TextRange::new(TextSize::from(24), TextSize::from(36))
+                range: TextRange::new(TextSize::from(24), TextSize::from(36)),
+                reason_range: TextRange::new(TextSize::from(24), TextSize::from(35))
             })],
         );
 
@@ -682,7 +728,8 @@ mod tests_biome_ignore_inline {
                 ],
                 reason: "explanation",
                 kind: SuppressionKind::Classic,
-                range: TextRange::new(TextSize::from(50), TextSize::from(62))
+                range: TextRange::new(TextSize::from(50), TextSize::from(62)),
+                reason_range: TextRange::new(TextSize::from(24), TextSize::from(35))
             })],
         );
     }
@@ -699,7 +746,8 @@ mod tests_biome_ignore_inline {
                 ],
                 reason: "explanation",
                 kind: SuppressionKind::Classic,
-                range: TextRange::new(TextSize::from(3), TextSize::from(15))
+                range: TextRange::new(TextSize::from(3), TextSize::from(15)),
+                reason_range: TextRange::new(TextSize::from(13), TextSize::from(24))
             })],
         );
     }
@@ -808,7 +856,8 @@ mod tests_biome_ignore_toplevel {
                 categories: vec![(category!("parse"), None, None)],
                 reason: "explanation1",
                 kind: SuppressionKind::All,
-                range: TextRange::new(TextSize::from(3), TextSize::from(19))
+                range: TextRange::new(TextSize::from(3), TextSize::from(19)),
+                reason_range: TextRange::new(TextSize::from(7), TextSize::from(19))
             })],
         );
 
@@ -819,7 +868,8 @@ mod tests_biome_ignore_toplevel {
                 categories: vec![(category!("parse"), None, None)],
                 reason: "explanation2",
                 kind: SuppressionKind::All,
-                range: TextRange::new(TextSize::from(4), TextSize::from(20))
+                range: TextRange::new(TextSize::from(4), TextSize::from(20)),
+                reason_range: TextRange::new(TextSize::from(7), TextSize::from(19))
             })],
         );
 
@@ -834,7 +884,8 @@ mod tests_biome_ignore_toplevel {
                 categories: vec![(category!("parse"), None, None)],
                 reason: "explanation3",
                 kind: SuppressionKind::All,
-                range: TextRange::new(TextSize::from(24), TextSize::from(40))
+                range: TextRange::new(TextSize::from(24), TextSize::from(40)),
+                reason_range: TextRange::new(TextSize::from(7), TextSize::from(19))
             })],
         );
 
@@ -850,7 +901,8 @@ mod tests_biome_ignore_toplevel {
                 categories: vec![(category!("parse"), None, None)],
                 reason: "explanation4",
                 kind: SuppressionKind::All,
-                range: TextRange::new(TextSize::from(50), TextSize::from(66))
+                range: TextRange::new(TextSize::from(50), TextSize::from(66)),
+                reason_range: TextRange::new(TextSize::from(7), TextSize::from(19))
             })],
         );
     }
@@ -863,7 +915,8 @@ mod tests_biome_ignore_toplevel {
                 categories: vec![(category!("format"), None, None)],
                 reason: "explanation",
                 kind: SuppressionKind::All,
-                range: TextRange::new(TextSize::from(3), TextSize::from(19))
+                range: TextRange::new(TextSize::from(3), TextSize::from(19)),
+                reason_range: TextRange::new(TextSize::from(8), TextSize::from(19))
             })],
         );
 
@@ -874,7 +927,8 @@ mod tests_biome_ignore_toplevel {
                 categories: vec![(category!("format"), None, None)],
                 reason: "explanation",
                 kind: SuppressionKind::All,
-                range: TextRange::new(TextSize::from(3), TextSize::from(19))
+                range: TextRange::new(TextSize::from(3), TextSize::from(19)),
+                reason_range: TextRange::new(TextSize::from(8), TextSize::from(19))
             })],
         );
 
@@ -885,7 +939,8 @@ mod tests_biome_ignore_toplevel {
                 categories: vec![(category!("format"), None, None)],
                 reason: "explanation",
                 kind: SuppressionKind::All,
-                range: TextRange::new(TextSize::from(3), TextSize::from(19))
+                range: TextRange::new(TextSize::from(3), TextSize::from(19)),
+                reason_range: TextRange::new(TextSize::from(8), TextSize::from(19))
             })],
         );
     }
@@ -902,7 +957,8 @@ mod tests_biome_ignore_toplevel {
                 ],
                 reason: "explanation",
                 kind: SuppressionKind::All,
-                range: TextRange::new(TextSize::from(3), TextSize::from(19))
+                range: TextRange::new(TextSize::from(3), TextSize::from(19)),
+                reason_range: TextRange::new(TextSize::from(23), TextSize::from(34))
             })],
         );
 
@@ -916,7 +972,8 @@ mod tests_biome_ignore_toplevel {
                 ],
                 reason: "explanation",
                 kind: SuppressionKind::All,
-                range: TextRange::new(TextSize::from(4), TextSize::from(20))
+                range: TextRange::new(TextSize::from(4), TextSize::from(20)),
+                reason_range: TextRange::new(TextSize::from(23), TextSize::from(34))
             })],
         );
 
@@ -934,7 +991,8 @@ mod tests_biome_ignore_toplevel {
                 ],
                 reason: "explanation",
                 kind: SuppressionKind::All,
-                range: TextRange::new(TextSize::from(24), TextSize::from(40))
+                range: TextRange::new(TextSize::from(24), TextSize::from(40)),
+                reason_range: TextRange::new(TextSize::from(24), TextSize::from(35))
             })],
         );
 
@@ -953,7 +1011,8 @@ mod tests_biome_ignore_toplevel {
                 ],
                 reason: "explanation",
                 kind: SuppressionKind::All,
-                range: TextRange::new(TextSize::from(50), TextSize::from(66))
+                range: TextRange::new(TextSize::from(50), TextSize::from(66)),
+                reason_range: TextRange::new(TextSize::from(24), TextSize::from(35))
             })],
         );
     }
@@ -982,7 +1041,8 @@ mod tests_biome_ignore_toplevel {
                 ],
                 reason: "explanation",
                 kind: SuppressionKind::All,
-                range: TextRange::new(TextSize::from(3), TextSize::from(19))
+                range: TextRange::new(TextSize::from(3), TextSize::from(19)),
+                reason_range: TextRange::new(TextSize::from(13), TextSize::from(24))
             })],
         );
     }
@@ -1007,6 +1067,17 @@ mod tests_biome_ignore_toplevel {
             vec![Err(SuppressionDiagnostic {
                 message: SuppressionDiagnosticKind::MissingColon,
                 span: TextRange::new(TextSize::from(27), TextSize::from(38))
+            })],
+        );
+    }
+
+    #[test]
+    fn diagnostic_missing_reason() {
+        assert_eq!(
+            parse_suppression_comment("// biome-ignore-all format:").collect::<Vec<_>>(),
+            vec![Err(SuppressionDiagnostic {
+                message: SuppressionDiagnosticKind::MissingReason,
+                span: TextRange::new(TextSize::from(23), TextSize::from(23))
             })],
         );
     }

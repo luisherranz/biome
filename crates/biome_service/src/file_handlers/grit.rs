@@ -247,6 +247,9 @@ impl ExtensionHandler for GritFileHandler {
                 debug_syntax_tree: Some(debug_syntax_tree),
                 debug_control_flow: None,
                 debug_formatter_ir: Some(debug_formatter_ir),
+                debug_type_info: None,
+                debug_registered_types: None,
+                debug_semantic_model: None,
             },
             analyzer: AnalyzerCapabilities {
                 lint: Some(lint),
@@ -327,8 +330,6 @@ fn format(
     settings: WorkspaceSettingsHandle,
 ) -> Result<Printed, WorkspaceError> {
     let options = settings.format_options::<GritLanguage>(biome_path, document_file_source);
-
-    tracing::debug!("Format with the following options: {:?}", options);
 
     let tree = parse.syntax();
     let formatted = format_node(options, &tree)?;

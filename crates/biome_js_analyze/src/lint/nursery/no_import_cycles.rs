@@ -6,7 +6,7 @@ use biome_analyze::{
 use biome_console::markup;
 use biome_diagnostics::Severity;
 use biome_js_syntax::AnyJsImportLike;
-use biome_module_graph::{JsModuleInfo, JsResolvedPath};
+use biome_module_graph::{JsModuleInfo, ResolvedPath};
 use biome_rowan::AstNode;
 use camino::{Utf8Path, Utf8PathBuf};
 
@@ -79,7 +79,7 @@ declare_lint_rule! {
     /// ```
     ///
     pub NoImportCycles {
-        version: "next",
+        version: "2.0.0",
         name: "noImportCycles",
         language: "js",
         sources: &[
@@ -93,7 +93,7 @@ declare_lint_rule! {
 
 impl Rule for NoImportCycles {
     type Query = ResolvedImports<AnyJsImportLike>;
-    type State = Vec<String>;
+    type State = Box<[Box<str>]>;
     type Signals = Option<Self::State>;
     type Options = ();
 
@@ -103,7 +103,7 @@ impl Rule for NoImportCycles {
         let node = ctx.query();
         let resolved_path = module_info
             .get_import_path_by_js_node(node)
-            .and_then(JsResolvedPath::as_path)?;
+            .and_then(ResolvedPath::as_path)?;
 
         let imports = ctx.module_info_for_path(resolved_path)?;
         find_cycle(ctx, resolved_path, imports)
@@ -158,9 +158,9 @@ fn find_cycle(
     ctx: &RuleContext<NoImportCycles>,
     start_path: &Utf8Path,
     mut module_info: JsModuleInfo,
-) -> Option<Vec<String>> {
+) -> Option<Box<[Box<str>]>> {
     let mut seen = HashSet::new();
-    let mut stack = Vec::new();
+    let mut stack: Vec<(Box<str>, JsModuleInfo)> = Vec::new();
 
     'outer: loop {
         for resolved_path in module_info.all_import_paths() {
@@ -170,10 +170,11 @@ fn find_cycle(
 
             if resolved_path == ctx.file_path() {
                 // Return all the paths from `start_path` to `resolved_path`:
-                let paths = Some(start_path.to_string())
+                let paths = Some(start_path.as_str())
                     .into_iter()
+                    .map(Box::from)
                     .chain(stack.into_iter().map(|(path, _)| path))
-                    .chain(Some(resolved_path.to_string()))
+                    .chain(Some(Box::from(resolved_path.as_str())))
                     .collect();
                 return Some(paths);
             }
@@ -187,7 +188,7 @@ fn find_cycle(
             seen.insert(resolved_path.to_string());
 
             if let Some(next_module_info) = ctx.module_info_for_path(resolved_path) {
-                stack.push((resolved_path.to_string(), module_info));
+                stack.push((resolved_path.as_str().into(), module_info));
                 module_info = next_module_info;
                 continue 'outer;
             }

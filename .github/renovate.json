@@ -21,6 +21,9 @@
       "groupName": "github-actions",
       "matchManagers": [
         "github-actions"
+      ],
+      "matchDepNames": [
+        "!rust"
       ]
     },
     {
@@ -53,8 +56,24 @@
       ]
     },
     {
-      "matchDepTypes": ["engines"],
+      "matchDepTypes": [
+        "engines"
+      ],
       "enabled": false
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/(^|/)rust-toolchain\\.toml?$/"
+      ],
+      "matchStrings": [
+        "channel\\s*=\\s*\"(?<currentValue>\\d+\\.\\d+(\\.\\d+)?)\""
+      ],
+      "depNameTemplate": "rust",
+      "packageNameTemplate": "rust-lang/rust",
+      "datasourceTemplate": "github-tags"
     }
   ]
 }

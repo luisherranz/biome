@@ -156,7 +156,7 @@ declare_lint_rule! {
         language: "ts",
         sources: &[RuleSource::EslintTypeScript("consistent-type-imports")],
         source_kind: RuleSourceKind::Inspired,
-        recommended: false,
+        recommended: true,
         severity: Severity::Warning,
         fix_kind: FixKind::Safe,
     }
@@ -185,7 +185,7 @@ impl Rule for UseImportType {
             return None;
         }
         let model = ctx.model();
-        let style = ctx.options().style.unwrap_or_default();
+        let style = ctx.options().style;
         match import_clause {
             AnyJsImportClause::JsImportBareClause(_) => None,
             AnyJsImportClause::JsImportCombinedClause(clause) => {
@@ -776,7 +776,7 @@ impl Rule for UseImportType {
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ImportTypeOptions {
-    style: Option<Style>,
+    pub style: Style,
 }
 
 /// Rule's options.
@@ -785,7 +785,7 @@ pub struct ImportTypeOptions {
 )]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-enum Style {
+pub enum Style {
     /// Use the best fitting style according to the situation
     #[default]
     Auto,

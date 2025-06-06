@@ -1,23 +1,21 @@
 use std::sync::Arc;
 
-use biome_js_semantic::{BindingId, ScopeId};
 use biome_js_syntax::{AnyJsDeclaration, JsImport, JsSyntaxNode, JsVariableKind, TextRange};
-use biome_js_type_info::Type;
+use biome_js_type_info::{BindingId, ScopeId, TypeReference};
 use biome_rowan::{AstNode, Text, TextSize};
 
-use crate::jsdoc_comment::JsdocComment;
+use biome_jsdoc_comment::JsdocComment;
 
 use super::{JsModuleInfoInner, scope::JsScope};
 
 /// Internal type with all the semantic data of a specific binding
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct JsBindingData {
     pub name: Text,
-    pub range: TextRange,
     pub references: Vec<JsBindingReference>,
     pub scope_id: ScopeId,
     pub declaration_kind: JsDeclarationKind,
-    pub ty: Type,
+    pub ty: TypeReference,
     pub jsdoc: Option<JsdocComment>,
     pub export_ranges: Vec<TextRange>,
 }
@@ -29,7 +27,7 @@ pub enum JsBindingReferenceKind {
 }
 
 /// Internal type with all the semantic data of a specific reference
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 #[expect(unused)]
 pub struct JsBindingReference {
     pub range_start: TextSize,
@@ -90,12 +88,12 @@ impl JsBinding {
     }
 
     /// Returns a reference to the binding's type.
-    pub fn ty(&self) -> &Type {
+    pub fn ty(&self) -> &TypeReference {
         &self.data.binding(self.id).ty
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub enum JsDeclarationKind {
     /// A `class` declaration.
     Class,
@@ -136,6 +134,43 @@ pub enum JsDeclarationKind {
 }
 
 impl JsDeclarationKind {
+    /// Returns whether this declaration declares a namespace.
+    #[inline]
+    pub fn declares_namespace(&self) -> bool {
+        matches!(self, Self::Namespace)
+    }
+
+    /// Returns whether this declaration declares a type.
+    #[inline]
+    pub fn declares_type(&self) -> bool {
+        matches!(
+            self,
+            Self::Class
+                | Self::Enum
+                | Self::Import
+                | Self::ImportType
+                | Self::Interface
+                | Self::Type
+                | Self::Unknown
+        )
+    }
+
+    /// Returns whether this declaration declares a runtime value.
+    #[inline]
+    pub fn declares_value(&self) -> bool {
+        matches!(
+            self,
+            Self::Class
+                | Self::Enum
+                | Self::HoistedValue
+                | Self::Import
+                | Self::Namespace
+                | Self::Unknown
+                | Self::Using
+                | Self::Value
+        )
+    }
+
     pub fn from_node(node: &JsSyntaxNode) -> Self {
         let Some(declaration) = node.ancestors().find_map(AnyJsDeclaration::cast) else {
             return match node.ancestors().find_map(JsImport::cast) {
@@ -182,7 +217,13 @@ impl JsDeclarationKind {
         }
     }
 
+    #[inline]
     pub fn is_import_declaration(&self) -> bool {
         matches!(self, Self::Import | Self::ImportType)
+    }
+
+    #[inline]
+    pub fn is_import_type_declaration(&self) -> bool {
+        matches!(self, Self::ImportType)
     }
 }

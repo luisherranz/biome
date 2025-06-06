@@ -1,11 +1,15 @@
 use crate::Reporter;
 use crate::execute::{Execution, TraversalMode};
-use crate::reporter::{DiagnosticsPayload, ReporterVisitor, TraversalSummary};
+use crate::reporter::{
+    DiagnosticsPayload, EvaluatedPathsDiagnostic, FixedPathsDiagnostic, ReporterVisitor,
+    TraversalSummary,
+};
 use biome_console::fmt::Formatter;
 use biome_console::{Console, ConsoleExt, fmt, markup};
+use biome_diagnostics::PrintDiagnostic;
 use biome_diagnostics::advice::ListAdvice;
-use biome_diagnostics::{Diagnostic, PrintDiagnostic};
 use biome_fs::BiomePath;
+use camino::Utf8PathBuf;
 use std::collections::BTreeSet;
 use std::io;
 use std::time::Duration;
@@ -15,6 +19,7 @@ pub(crate) struct ConsoleReporter {
     pub(crate) diagnostics_payload: DiagnosticsPayload,
     pub(crate) execution: Execution,
     pub(crate) evaluated_paths: BTreeSet<BiomePath>,
+    pub(crate) working_directory: Option<Utf8PathBuf>,
     pub(crate) verbose: bool,
 }
 
@@ -23,32 +28,10 @@ impl Reporter for ConsoleReporter {
         visitor.report_diagnostics(&self.execution, self.diagnostics_payload, self.verbose)?;
         visitor.report_summary(&self.execution, self.summary, self.verbose)?;
         if self.verbose {
-            visitor.report_handled_paths(self.evaluated_paths)?;
+            visitor.report_handled_paths(self.evaluated_paths, self.working_directory)?;
         }
         Ok(())
     }
-}
-
-#[derive(Debug, Diagnostic)]
-#[diagnostic(
-    tags(VERBOSE),
-    severity = Information,
-    message = "Files processed:"
-)]
-struct EvaluatedPathsDiagnostic {
-    #[advice]
-    advice: ListAdvice<String>,
-}
-
-#[derive(Debug, Diagnostic)]
-#[diagnostic(
-    tags(VERBOSE),
-    severity = Information,
-    message = "Files fixed:"
-)]
-struct FixedPathsDiagnostic {
-    #[advice]
-    advice: ListAdvice<String>,
 }
 
 pub(crate) struct ConsoleReporterVisitor<'a>(pub(crate) &'a mut dyn Console);
@@ -63,7 +46,7 @@ impl ReporterVisitor for ConsoleReporterVisitor<'_> {
         if execution.is_check() && summary.suggested_fixes_skipped > 0 {
             self.0.log(markup! {
                 <Warn>"Skipped "{summary.suggested_fixes_skipped}" suggested fixes.\n"</Warn>
-                <Info>"If you wish to apply the suggested (unsafe) fixes, use the command "<Emphasis>"biome check --fix --unsafe\n"</Emphasis></Info>
+                <Info>"If you wish to apply the suggested (unsafe) fixes, use the command "<Emphasis>"biome check --write --unsafe\n"</Emphasis></Info>
             })
         }
 
@@ -81,10 +64,26 @@ impl ReporterVisitor for ConsoleReporterVisitor<'_> {
         Ok(())
     }
 
-    fn report_handled_paths(&mut self, evaluated_paths: BTreeSet<BiomePath>) -> io::Result<()> {
+    fn report_handled_paths(
+        &mut self,
+        evaluated_paths: BTreeSet<BiomePath>,
+        working_directory: Option<Utf8PathBuf>,
+    ) -> io::Result<()> {
         let evaluated_paths_diagnostic = EvaluatedPathsDiagnostic {
             advice: ListAdvice {
-                list: evaluated_paths.iter().map(|p| p.to_string()).collect(),
+                list: evaluated_paths
+                    .iter()
+                    .map(|p| {
+                        working_directory
+                            .as_ref()
+                            .and_then(|wd| {
+                                p.strip_prefix(wd.as_str())
+                                    .map(|path| path.to_string())
+                                    .ok()
+                            })
+                            .unwrap_or(p.to_string())
+                    })
+                    .collect(),
             },
         };
 
@@ -93,7 +92,16 @@ impl ReporterVisitor for ConsoleReporterVisitor<'_> {
                 list: evaluated_paths
                     .iter()
                     .filter(|p| p.was_written())
-                    .map(|p| p.to_string())
+                    .map(|p| {
+                        working_directory
+                            .as_ref()
+                            .and_then(|wd| {
+                                p.strip_prefix(wd.as_str())
+                                    .map(|path| path.to_string())
+                                    .ok()
+                            })
+                            .unwrap_or(p.to_string())
+                    })
                     .collect(),
             },
         };

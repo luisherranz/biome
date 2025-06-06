@@ -9,15 +9,17 @@ use biome_diagnostics::termcolor::Buffer;
 use biome_diagnostics::{DiagnosticExt, Error, PrintDiagnostic};
 use biome_fs::{BiomePath, FileSystem, OsFileSystem};
 use biome_js_parser::{AnyJsRoot, JsFileSource, JsParserOptions};
+use biome_js_type_info::TypeResolver;
 use biome_json_parser::{JsonParserOptions, ParseDiagnostic};
 use biome_module_graph::ModuleGraph;
 use biome_package::PackageJson;
 use biome_project_layout::ProjectLayout;
-use biome_rowan::{Language, SyntaxKind, SyntaxNode, SyntaxSlot};
+use biome_rowan::{Direction, Language, SyntaxKind, SyntaxNode, SyntaxSlot};
 use biome_service::configuration::to_analyzer_rules;
 use biome_service::file_handlers::DocumentFileSource;
 use biome_service::projects::Projects;
 use biome_service::settings::{ServiceLanguage, Settings, WorkspaceSettingsHandle};
+use biome_string_case::StrLikeExtension;
 use camino::{Utf8Path, Utf8PathBuf};
 use json_comments::StripComments;
 use similar::{DiffableStr, TextDiff};
@@ -152,7 +154,7 @@ where
         Default::default()
     } else {
         let configuration = deserialized.into_deserialized().unwrap_or_default();
-        let mut settings = projects.get_settings(key).unwrap_or_default();
+        let mut settings = projects.get_root_settings(key).unwrap_or_default();
         settings
             .merge_with_configuration(configuration, None)
             .unwrap();
@@ -191,15 +193,12 @@ pub fn module_graph_for_test_file(
 pub fn get_added_paths<'a>(
     fs: &dyn FileSystem,
     paths: &'a [BiomePath],
-) -> Vec<(&'a BiomePath, Option<AnyJsRoot>)> {
+) -> Vec<(&'a BiomePath, AnyJsRoot)> {
     paths
         .iter()
-        .map(|path| {
+        .filter_map(|path| {
             let root = fs.read_file_from_path(path).ok().and_then(|content| {
-                let file_source = path
-                    .extension()
-                    .and_then(|extension| JsFileSource::try_from_extension(extension).ok())
-                    .unwrap_or_default();
+                let file_source = JsFileSource::try_from(path.as_path()).unwrap_or_default();
                 let parsed =
                     biome_js_parser::parse(&content, file_source, JsParserOptions::default());
                 let diagnostics = parsed.diagnostics();
@@ -208,8 +207,8 @@ pub fn get_added_paths<'a>(
                     "Unexpected diagnostics: {diagnostics:?}"
                 );
                 parsed.try_tree()
-            });
-            (path, root)
+            })?;
+            Some((path, root))
         })
         .collect()
 }
@@ -256,7 +255,10 @@ pub fn project_layout_with_node_manifest(
         } else {
             let project_layout = ProjectLayout::default();
             project_layout.insert_node_manifest(
-                Utf8PathBuf::new(),
+                input_file
+                    .parent()
+                    .map(|dir_path| dir_path.to_path_buf())
+                    .unwrap_or_default(),
                 deserialized.into_deserialized().unwrap_or_default(),
             );
             return Arc::new(project_layout);
@@ -267,11 +269,9 @@ pub fn project_layout_with_node_manifest(
 
 pub fn diagnostic_to_string(name: &str, source: &str, diag: Error) -> String {
     let error = diag.with_file_path(name).with_file_source_code(source);
-    let text = markup_to_string(biome_console::markup! {
+    markup_to_string(biome_console::markup! {
         {PrintDiagnostic::verbose(&error)}
-    });
-
-    text
+    })
 }
 
 fn markup_to_string(markup: biome_console::Markup) -> String {
@@ -282,6 +282,27 @@ fn markup_to_string(markup: biome_console::Markup) -> String {
     fmt.write_markup(markup).unwrap();
 
     String::from_utf8(buffer).unwrap()
+}
+
+pub fn dump_registered_types(content: &mut String, resolver: &dyn TypeResolver) {
+    let mut registered_types = String::new();
+    let mut resolver = Some(resolver);
+    while let Some(current_resolver) = resolver {
+        for (i, ty) in current_resolver.registered_types().iter().enumerate() {
+            let level = current_resolver.level();
+            registered_types.push_str(&format!("\n{level:?} TypeId({i}) => {ty}\n"));
+        }
+
+        resolver = current_resolver.fallback_resolver();
+    }
+
+    if !registered_types.is_empty() {
+        content.push_str("## Registered types\n\n");
+
+        content.push_str("```");
+        content.push_str(&registered_types);
+        content.push_str("```\n");
+    }
 }
 
 // Check that all red / green nodes have correctly been released on exit
@@ -306,7 +327,7 @@ pub fn register_leak_checker() {
 }
 
 pub fn code_fix_to_string<L: ServiceLanguage>(source: &str, action: AnalyzerAction<L>) -> String {
-    let (_, text_edit) = action.mutation.as_text_range_and_edit().unwrap_or_default();
+    let (_, text_edit) = action.mutation.to_text_range_and_edit().unwrap_or_default();
 
     let output = text_edit.new_string(source);
 
@@ -477,4 +498,94 @@ pub fn validate_eof_token<L: Language>(syntax: SyntaxNode<L>) {
         last_token.token_text_trimmed().is_empty(),
         "the EOF token may not contain any data except trailing whitespace"
     );
+}
+
+/// Asserts whether test files containing comments:
+/// - `should not generate diagnostics` emit no diagnostics
+/// - `should generate diagnostics` emit diagnostics
+///
+/// Additionally it checks that valid test files contain
+/// comment enforcing no diagnostics.
+///
+/// ## Examples
+///
+/// `valid.js` file
+/// ```js
+/// /** should not generate diagnostics */
+/// ```
+/// `valid.yml` file
+/// ```yaml
+/// # should not generate diagnostics
+/// ```
+///
+/// `in+valid.js` file
+/// ```js
+/// /** should generate diagnostics */
+/// ```
+///
+pub fn assert_diagnostics_expectation_comment<L: Language>(
+    file_path: &Utf8Path,
+    syntax: &SyntaxNode<L>,
+    diagnostics_quantity: usize,
+) {
+    let no_diagnostics_comment_text = "should not generate diagnostics";
+    let diagnostics_comment_text = "should generate diagnostics";
+
+    let is_valid_test_file = match file_path.extension().unwrap_or_default() {
+        // Excluded files types which cannot contain comment in the source code
+        "snap" | "json" | "jsonc" | "svelte" | "vue" | "astro" | "html" => false,
+        _ => {
+            let name = file_path.file_name().unwrap().to_ascii_lowercase_cow();
+            // We can't know all the valid file names, but this should catch most common cases.
+            name.contains("valid") && !name.contains("invalid")
+        }
+    };
+
+    enum Diagnostics {
+        ShouldGenerateDiagnostics,
+        ShouldNotGenerateDiagnostics,
+    }
+
+    let diagnostic_comment = syntax.preorder_tokens(Direction::Next).find_map(|token| {
+        for piece in token.leading_trivia().pieces() {
+            if let Some(comment) = piece.as_comments() {
+                let text = comment.text();
+
+                if text.contains(no_diagnostics_comment_text) {
+                    return Some(Diagnostics::ShouldNotGenerateDiagnostics);
+                }
+
+                if text.contains(diagnostics_comment_text) {
+                    return Some(Diagnostics::ShouldGenerateDiagnostics);
+                }
+            }
+        }
+
+        None
+    });
+
+    let has_diagnostics = diagnostics_quantity > 0;
+    match diagnostic_comment {
+        Some(Diagnostics::ShouldNotGenerateDiagnostics) => {
+            if has_diagnostics {
+                panic!(
+                    "This test should not generate diagnostics\nFile: {}",
+                    file_path
+                );
+            }
+        }
+        Some(Diagnostics::ShouldGenerateDiagnostics) => {
+            if !has_diagnostics {
+                panic!("This test should generate diagnostics\nFile: {}", file_path);
+            }
+        }
+        None => {
+            if is_valid_test_file {
+                panic!(
+                    "Valid test files should contain comment `{}`\nFile: {}",
+                    no_diagnostics_comment_text, file_path
+                );
+            }
+        }
+    }
 }

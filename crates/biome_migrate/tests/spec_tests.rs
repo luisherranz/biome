@@ -5,8 +5,8 @@ use biome_json_parser::{JsonParserOptions, parse_json};
 use biome_json_syntax::JsonLanguage;
 use biome_rowan::AstNode;
 use biome_test_utils::{
-    assert_errors_are_absent, code_fix_to_string, diagnostic_to_string,
-    has_bogus_nodes_or_empty_slots, parse_test_path, register_leak_checker,
+    assert_diagnostics_expectation_comment, assert_errors_are_absent, code_fix_to_string,
+    diagnostic_to_string, has_bogus_nodes_or_empty_slots, parse_test_path, register_leak_checker,
     write_analyzer_snapshot,
 };
 use camino::Utf8Path;
@@ -35,7 +35,7 @@ fn run_test(input: &'static str, _: &str, directory_path: &str, _: &str) {
     let input_code = read_to_string(input_file)
         .unwrap_or_else(|err| panic!("failed to read {input_file:?}: {err:?}"));
 
-    let quantity_diagnostics = analyze_and_snap(
+    analyze_and_snap(
         &mut snapshot,
         &input_code,
         file_name,
@@ -49,10 +49,6 @@ fn run_test(input: &'static str, _: &str, directory_path: &str, _: &str) {
     }, {
         insta::assert_snapshot!(file_name, snapshot, file_name);
     });
-
-    if input_code.contains("/* should not generate diagnostics */") && quantity_diagnostics > 0 {
-        panic!("This test should not generate diagnostics");
-    }
 }
 
 pub(crate) fn analyze_and_snap(
@@ -61,7 +57,7 @@ pub(crate) fn analyze_and_snap(
     file_name: &str,
     input_file: &Utf8Path,
     directory_path: PathBuf,
-) -> usize {
+) {
     let parse_options = if file_name.ends_with(".jsonc") {
         JsonParserOptions::default()
             .with_allow_comments()
@@ -80,29 +76,30 @@ pub(crate) fn analyze_and_snap(
         enabled_rules: Some(slice::from_ref(&rule_filter)),
         ..Default::default()
     };
-    let (_, errors) = biome_migrate::migrate_configuration(&root, filter, input_file, |event| {
-        if let Some(mut diag) = event.diagnostic() {
+    let (_, errors) =
+        biome_migrate::migrate_configuration(&root, filter, input_file, true, |event| {
+            if let Some(mut diag) = event.diagnostic() {
+                for action in event.actions() {
+                    if !action.is_suppression() {
+                        check_code_action(input_file, input_code, &action, parse_options);
+                        diag = diag.add_code_suggestion(CodeSuggestionAdvice::from(action));
+                    }
+                }
+
+                let error = diag.with_severity(Severity::Warning);
+                diagnostics.push(diagnostic_to_string(file_name, input_code, error));
+                return ControlFlow::Continue(());
+            }
+
             for action in event.actions() {
                 if !action.is_suppression() {
                     check_code_action(input_file, input_code, &action, parse_options);
-                    diag = diag.add_code_suggestion(CodeSuggestionAdvice::from(action));
+                    code_fixes.push(code_fix_to_string(input_code, action));
                 }
             }
 
-            let error = diag.with_severity(Severity::Warning);
-            diagnostics.push(diagnostic_to_string(file_name, input_code, error));
-            return ControlFlow::Continue(());
-        }
-
-        for action in event.actions() {
-            if !action.is_suppression() {
-                check_code_action(input_file, input_code, &action, parse_options);
-                code_fixes.push(code_fix_to_string(input_code, action));
-            }
-        }
-
-        ControlFlow::<Never>::Continue(())
-    });
+            ControlFlow::<Never>::Continue(())
+        });
 
     for error in errors {
         diagnostics.push(diagnostic_to_string(file_name, input_code, error));
@@ -115,7 +112,7 @@ pub(crate) fn analyze_and_snap(
         "json",
     );
 
-    diagnostics.len()
+    assert_diagnostics_expectation_comment(input_file, root.syntax(), diagnostics.len());
 }
 
 fn check_code_action(

@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - next
     paths: # Only run when changes are made to rust code or root Cargo
       - "crates/**"
       - "fuzz/**"
@@ -91,7 +92,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: windows-latest
+          - os: depot-windows-2022
           - os: depot-ubuntu-24.04-arm-16
     steps:
       - name: Checkout PR branch

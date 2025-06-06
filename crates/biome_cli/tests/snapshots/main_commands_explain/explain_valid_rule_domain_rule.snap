@@ -9,8 +9,9 @@ Summary
 
 - Name: noFocusedTests
 - Fix: unsafe
-- Default severity: error
+- Default severity: warn
 - Available from version: 1.6.0
+- Diagnostic category: lint/suspicious/noFocusedTests
 
 Domains
 

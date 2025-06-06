@@ -10,8 +10,8 @@ use syn::{
 };
 
 pub(crate) enum DeriveInput {
-    DeriveStructInput(DeriveStructInput),
-    DeriveEnumInput(DeriveEnumInput),
+    DeriveStructInput(Box<DeriveStructInput>),
+    DeriveEnumInput(Box<DeriveEnumInput>),
 }
 
 pub(crate) struct DeriveStructInput {
@@ -39,18 +39,18 @@ pub(crate) struct DeriveEnumInput {
 impl DeriveInput {
     pub(crate) fn parse(input: syn::DeriveInput) -> Self {
         match input.data {
-            syn::Data::Struct(data) => Self::DeriveStructInput(DeriveStructInput::parse(
+            syn::Data::Struct(data) => Self::DeriveStructInput(Box::new(DeriveStructInput::parse(
                 input.ident,
                 input.generics,
                 input.attrs,
                 data,
-            )),
-            syn::Data::Enum(data) => Self::DeriveEnumInput(DeriveEnumInput::parse(
+            ))),
+            syn::Data::Enum(data) => Self::DeriveEnumInput(Box::new(DeriveEnumInput::parse(
                 input.ident,
                 input.generics,
                 input.attrs,
                 data,
-            )),
+            ))),
             syn::Data::Union(data) => abort!(
                 data.union_token.span(),
                 "unions are not supported by the Diagnostic derive macro"
@@ -133,8 +133,6 @@ impl DeriveStructInput {
                         }
                     }
                 }
-
-                continue;
             }
         }
 
@@ -147,35 +145,17 @@ impl DeriveStructInput {
             for attr in field.attrs {
                 if attr.path.is_ident("category") {
                     result.category = Some(StaticOrDynamic::Dynamic(ident.clone()));
-                    continue;
-                }
-
-                if attr.path.is_ident("severity") {
+                } else if attr.path.is_ident("severity") {
                     result.severity = Some(StaticOrDynamic::Dynamic(ident.clone()));
-                    continue;
-                }
-
-                if attr.path.is_ident("description") {
+                } else if attr.path.is_ident("description") {
                     result.description = Some(StaticOrDynamic::Dynamic(ident.clone()));
-                    continue;
-                }
-
-                if attr.path.is_ident("message") {
+                } else if attr.path.is_ident("message") {
                     result.message = Some(StaticOrDynamic::Dynamic(ident.clone()));
-                    continue;
-                }
-
-                if attr.path.is_ident("advice") {
+                } else if attr.path.is_ident("advice") {
                     result.advices.push(StaticOrDynamic::Dynamic(ident.clone()));
-                    continue;
-                }
-
-                if attr.path.is_ident("verbose_advice") {
+                } else if attr.path.is_ident("verbose_advice") {
                     result.verbose_advices.push(ident.clone());
-                    continue;
-                }
-
-                if attr.path.is_ident("location") {
+                } else if attr.path.is_ident("location") {
                     let tokens = attr.tokens.into();
                     let attr = match LocationAttr::parse.parse(tokens) {
                         Ok(attr) => attr,
@@ -187,17 +167,10 @@ impl DeriveStructInput {
                     };
 
                     result.location.push((ident.clone(), attr.field));
-                    continue;
-                }
-
-                if attr.path.is_ident("tags") {
+                } else if attr.path.is_ident("tags") {
                     result.tags = Some(StaticOrDynamic::Dynamic(ident.clone()));
-                    continue;
-                }
-
-                if attr.path.is_ident("source") {
+                } else if attr.path.is_ident("source") {
                     result.source = Some(ident.clone());
-                    continue;
                 }
             }
         }

@@ -19,6 +19,7 @@ expression: redactor(content)
                 "ignoreNonDOM": true
             }],
             "@typescript-eslint/array-type": ["error", { "default": "generic" }],
+            "@typescript-eslint/consistent-type-imports": ["error", { "fixStyle": "inline-type-imports" }],
             "@typescript-eslint/naming-convention": ["error",
                 {
                     "selector": "property",
@@ -126,100 +127,114 @@ biome.json migrate ━━━━━━━━━━━━━━━━━━━━�
        27 │ + → → → → → "level":·"error",
        28 │ + → → → → → "options":·{·"filenameCases":·["camelCase",·"PascalCase"]·}
        29 │ + → → → → },
-       30 │ + → → → → "useNamingConvention":·{
+       30 │ + → → → → "useImportType":·{
        31 │ + → → → → → "level":·"error",
-       32 │ + → → → → → "options":·{
-       33 │ + → → → → → → "strictCase":·false,
-       34 │ + → → → → → → "requireAscii":·false,
-       35 │ + → → → → → → "conventions":·[
-       36 │ + → → → → → → → {
-       37 │ + → → → → → → → → "selector":·{·"kind":·"enumMember"·},
-       38 │ + → → → → → → → → "formats":·["CONSTANT_CASE"]
-       39 │ + → → → → → → → },
-       40 │ + → → → → → → → {·"selector":·{·"kind":·"interface"·},·"match":·"(?:I|IO)(.*)"·},
-       41 │ + → → → → → → → {
-       42 │ + → → → → → → → → "selector":·{
-       43 │ + → → → → → → → → → "kind":·"classProperty",
-       44 │ + → → → → → → → → → "modifiers":·["private"]
-       45 │ + → → → → → → → → },
-       46 │ + → → → → → → → → "match":·"_([^_]*)",
-       47 │ + → → → → → → → → "formats":·["camelCase"]
-       48 │ + → → → → → → → },
-       49 │ + → → → → → → → {·"selector":·{·"kind":·"classProperty"·},·"match":·"([^_]*)"·},
-       50 │ + → → → → → → → {·"selector":·{·"kind":·"typeProperty"·},·"match":·"([^_]*)"·},
-       51 │ + → → → → → → → {
-       52 │ + → → → → → → → → "selector":·{·"kind":·"objectLiteralProperty"·},
-       53 │ + → → → → → → → → "match":·"([^_]*)"
-       54 │ + → → → → → → → }
-       55 │ + → → → → → → ]
-       56 │ + → → → → → }
-       57 │ + → → → → }
-       58 │ + → → → }
-       59 │ + → → },
-       60 │ + → → "includes":·["**"]
-       61 │ + → },
-       62 │ + → "overrides":·[
-       63 │ + → → {
-       64 │ + → → → "includes":·["default.js"],
-       65 │ + → → → "linter":·{
-       66 │ + → → → → "rules":·{
-       67 │ + → → → → → "a11y":·{·"useValidAriaRole":·"error"·},
-       68 │ + → → → → → "style":·{
-       69 │ + → → → → → → "noRestrictedGlobals":·{·"level":·"error",·"options":·{}·},
-       70 │ + → → → → → → "useConsistentArrayType":·"error",
-       71 │ + → → → → → → "useFilenamingConvention":·{
-       72 │ + → → → → → → → "level":·"error",
-       73 │ + → → → → → → → "options":·{·"filenameCases":·["kebab-case"]·}
-       74 │ + → → → → → → },
-       75 │ + → → → → → → "useNamingConvention":·{
+       32 │ + → → → → → "options":·{·"style":·"inlineType"·}
+       33 │ + → → → → },
+       34 │ + → → → → "useNamingConvention":·{
+       35 │ + → → → → → "level":·"error",
+       36 │ + → → → → → "options":·{
+       37 │ + → → → → → → "strictCase":·false,
+       38 │ + → → → → → → "requireAscii":·false,
+       39 │ + → → → → → → "conventions":·[
+       40 │ + → → → → → → → {
+       41 │ + → → → → → → → → "selector":·{·"kind":·"enumMember"·},
+       42 │ + → → → → → → → → "formats":·["CONSTANT_CASE"]
+       43 │ + → → → → → → → },
+       44 │ + → → → → → → → {·"selector":·{·"kind":·"interface"·},·"match":·"(?:I|IO)(.*)"·},
+       45 │ + → → → → → → → {
+       46 │ + → → → → → → → → "selector":·{
+       47 │ + → → → → → → → → → "kind":·"classProperty",
+       48 │ + → → → → → → → → → "modifiers":·["private"]
+       49 │ + → → → → → → → → },
+       50 │ + → → → → → → → → "match":·"_([^_]*)",
+       51 │ + → → → → → → → → "formats":·["camelCase"]
+       52 │ + → → → → → → → },
+       53 │ + → → → → → → → {·"selector":·{·"kind":·"classProperty"·},·"match":·"([^_]*)"·},
+       54 │ + → → → → → → → {·"selector":·{·"kind":·"typeProperty"·},·"match":·"([^_]*)"·},
+       55 │ + → → → → → → → {
+       56 │ + → → → → → → → → "selector":·{·"kind":·"objectLiteralProperty"·},
+       57 │ + → → → → → → → → "match":·"([^_]*)"
+       58 │ + → → → → → → → }
+       59 │ + → → → → → → ]
+       60 │ + → → → → → }
+       61 │ + → → → → }
+       62 │ + → → → }
+       63 │ + → → },
+       64 │ + → → "includes":·["**"]
+       65 │ + → },
+       66 │ + → "overrides":·[
+       67 │ + → → {
+       68 │ + → → → "includes":·["default.js"],
+       69 │ + → → → "linter":·{
+       70 │ + → → → → "rules":·{
+       71 │ + → → → → → "a11y":·{·"useValidAriaRole":·"error"·},
+       72 │ + → → → → → "style":·{
+       73 │ + → → → → → → "noRestrictedGlobals":·{·"level":·"error",·"options":·{}·},
+       74 │ + → → → → → → "useConsistentArrayType":·"error",
+       75 │ + → → → → → → "useFilenamingConvention":·{
        76 │ + → → → → → → → "level":·"error",
-       77 │ + → → → → → → → "options":·{·"strictCase":·false,·"requireAscii":·false·}
-       78 │ + → → → → → → }
-       79 │ + → → → → → }
-       80 │ + → → → → }
-       81 │ + → → → }
-       82 │ + → → },
-       83 │ + → → {
-       84 │ + → → → "includes":·["alternative.js"],
-       85 │ + → → → "linter":·{
-       86 │ + → → → → "rules":·{
-       87 │ + → → → → → "style":·{
-       88 │ + → → → → → → "noRestrictedGlobals":·{
-       89 │ + → → → → → → → "level":·"error",
-       90 │ + → → → → → → → "options":·{
-       91 │ + → → → → → → → → "deniedGlobals":·{
-       92 │ + → → → → → → → → → "fdescribe":·"Do·not·commit·fdescribe.·Use·describe·instead.",
-       93 │ + → → → → → → → → → "event":·"Use·local·parameter·instead."
-       94 │ + → → → → → → → → }
-       95 │ + → → → → → → → }
-       96 │ + → → → → → → },
-       97 │ + → → → → → → "useConsistentArrayType":·{
-       98 │ + → → → → → → → "level":·"error",
-       99 │ + → → → → → → → "options":·{·"syntax":·"shorthand"·}
+       77 │ + → → → → → → → "options":·{·"filenameCases":·["kebab-case"]·}
+       78 │ + → → → → → → },
+       79 │ + → → → → → → "useNamingConvention":·{
+       80 │ + → → → → → → → "level":·"error",
+       81 │ + → → → → → → → "options":·{·"strictCase":·false,·"requireAscii":·false·}
+       82 │ + → → → → → → }
+       83 │ + → → → → → }
+       84 │ + → → → → }
+       85 │ + → → → }
+       86 │ + → → },
+       87 │ + → → {
+       88 │ + → → → "includes":·["alternative.js"],
+       89 │ + → → → "linter":·{
+       90 │ + → → → → "rules":·{
+       91 │ + → → → → → "style":·{
+       92 │ + → → → → → → "noRestrictedGlobals":·{
+       93 │ + → → → → → → → "level":·"error",
+       94 │ + → → → → → → → "options":·{
+       95 │ + → → → → → → → → "deniedGlobals":·{
+       96 │ + → → → → → → → → → "fdescribe":·"Do·not·commit·fdescribe.·Use·describe·instead.",
+       97 │ + → → → → → → → → → "event":·"Use·local·parameter·instead."
+       98 │ + → → → → → → → → }
+       99 │ + → → → → → → → }
       100 │ + → → → → → → },
-      101 │ + → → → → → → "useFilenamingConvention":·{
+      101 │ + → → → → → → "useConsistentArrayType":·{
       102 │ + → → → → → → → "level":·"error",
-      103 │ + → → → → → → → "options":·{·"filenameCases":·["kebab-case"]·}
+      103 │ + → → → → → → → "options":·{·"syntax":·"shorthand"·}
       104 │ + → → → → → → },
-      105 │ + → → → → → → "useNamingConvention":·{
+      105 │ + → → → → → → "useFilenamingConvention":·{
       106 │ + → → → → → → → "level":·"error",
-      107 │ + → → → → → → → "options":·{
-      108 │ + → → → → → → → → "strictCase":·false,
-      109 │ + → → → → → → → → "requireAscii":·false,
-      110 │ + → → → → → → → → "conventions":·[{·"formats":·["CONSTANT_CASE"]·}]
-      111 │ + → → → → → → → }
-      112 │ + → → → → → → }
-      113 │ + → → → → → }
-      114 │ + → → → → }
-      115 │ + → → → }
-      116 │ + → → }
-      117 │ + → ]
-      118 │ + }
-      119 │ + 
+      107 │ + → → → → → → → "options":·{·"filenameCases":·["kebab-case"]·}
+      108 │ + → → → → → → },
+      109 │ + → → → → → → "useNamingConvention":·{
+      110 │ + → → → → → → → "level":·"error",
+      111 │ + → → → → → → → "options":·{
+      112 │ + → → → → → → → → "strictCase":·false,
+      113 │ + → → → → → → → → "requireAscii":·false,
+      114 │ + → → → → → → → → "conventions":·[{·"formats":·["CONSTANT_CASE"]·}]
+      115 │ + → → → → → → → }
+      116 │ + → → → → → → }
+      117 │ + → → → → → }
+      118 │ + → → → → }
+      119 │ + → → → }
+      120 │ + → → }
+      121 │ + → ]
+      122 │ + }
+      123 │ + 
   
 
 ```
 
 ```block
-Run the command with the option --write to apply the changes.
+configuration ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  i Migration results:
+  
+  - biome.json: configuration needs migration.
+  
+  i Use --write to apply the changes.
+  
+  $ biome migrate --write
+  
+
 ```

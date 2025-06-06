@@ -1,4 +1,5 @@
-use biome_module_graph::JsResolvedPath;
+use biome_diagnostics::Severity;
+use biome_module_graph::ResolvedPath;
 use camino::{Utf8Component, Utf8Path};
 use serde::{Deserialize, Serialize};
 
@@ -118,6 +119,7 @@ declare_lint_rule! {
         name: "useImportExtensions",
         language: "js",
         recommended: false,
+        severity: Severity::Warning,
         fix_kind: FixKind::Safe,
         domains: &[RuleDomain::Project],
     }
@@ -155,7 +157,7 @@ impl Rule for UseImportExtensions {
         let node = ctx.query();
         let resolved_path = module_info
             .get_import_path_by_js_node(node)
-            .and_then(JsResolvedPath::as_path)?;
+            .and_then(ResolvedPath::as_path)?;
 
         get_extensionless_import(node, resolved_path, force_js_extensions)
     }
@@ -240,7 +242,7 @@ fn get_extensionless_import(
         return None;
     }
 
-    let last_component = path_components.last().unwrap_or(first_component);
+    let last_component = path_components.next_back().unwrap_or(first_component);
 
     let has_query_or_hash =
         last_component.as_str().contains('?') || last_component.as_str().contains('#');

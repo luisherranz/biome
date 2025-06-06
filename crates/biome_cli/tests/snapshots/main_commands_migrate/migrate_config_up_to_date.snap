@@ -1,7 +1,6 @@
 ---
 source: crates/biome_cli/tests/snap_test.rs
 expression: redactor(content)
-snapshot_kind: text
 ---
 ## `biome.json`
 
@@ -17,38 +16,36 @@ biome.json migrate ━━━━━━━━━━━━━━━━━━━━�
   i Configuration file can be updated.
   
     1    │ - {·"linter":·{·"enabled":·true·}·}
-       1 │ + {·"linter":·{"enabled":·true·,
+       1 │ + {·"root":·false,"linter":·{"enabled":·true·,
        2 │ + ····"rules":·{
        3 │ + ······"style":·{
-       4 │ + ········"useLiteralEnumMembers":·"error",
-       5 │ + ········"noCommaOperator":·"error",
-       6 │ + ········"useNodejsImportProtocol":·"error",
-       7 │ + ········"useAsConstAssertion":·"error",
-       8 │ + ········"useNumericLiterals":·"error",
-       9 │ + ········"useEnumInitializers":·"error",
-      10 │ + ········"useSelfClosingElements":·"error",
-      11 │ + ········"useConst":·"error",
-      12 │ + ········"useSingleVarDeclarator":·"error",
-      13 │ + ········"noUnusedTemplateLiteral":·"error",
-      14 │ + ········"useNumberNamespace":·"error",
-      15 │ + ········"noInferrableTypes":·"error",
-      16 │ + ········"useExponentiationOperator":·"error",
-      17 │ + ········"useTemplate":·"error",
-      18 │ + ········"noParameterAssign":·"error",
-      19 │ + ········"noNonNullAssertion":·"error",
-      20 │ + ········"useDefaultParameterLast":·"error",
-      21 │ + ········"noArguments":·"error",
-      22 │ + ········"useImportType":·"error",
-      23 │ + ········"useExportType":·"error",
-      24 │ + ········"noUselessElse":·"error",
-      25 │ + ········"useShorthandFunctionType":·"error"
-      26 │ + ······}
-      27 │ + ····}
-      28 │ + ··}·}
+       4 │ + ········"noParameterAssign":·"error",
+       5 │ + ········"useAsConstAssertion":·"error",
+       6 │ + ········"useDefaultParameterLast":·"error",
+       7 │ + ········"useEnumInitializers":·"error",
+       8 │ + ········"useSelfClosingElements":·"error",
+       9 │ + ········"useSingleVarDeclarator":·"error",
+      10 │ + ········"noUnusedTemplateLiteral":·"error",
+      11 │ + ········"useNumberNamespace":·"error",
+      12 │ + ········"noInferrableTypes":·"error",
+      13 │ + ········"noUselessElse":·"error"
+      14 │ + ······}
+      15 │ + ····}
+      16 │ + ··}·}
   
 
 ```
 
 ```block
-Run the command with the option --write to apply the changes.
+configuration ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  i Migration results:
+  
+  - biome.json: configuration needs migration.
+  
+  i Use --write to apply the changes.
+  
+  $ biome migrate --write
+  
+
 ```

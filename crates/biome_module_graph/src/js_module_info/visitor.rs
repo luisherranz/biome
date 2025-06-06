@@ -1,38 +1,35 @@
 use biome_js_syntax::{
     AnyJsArrayBindingPatternElement, AnyJsBinding, AnyJsBindingPattern, AnyJsDeclarationClause,
-    AnyJsExportClause, AnyJsExportDefaultDeclaration, AnyJsImportLike,
+    AnyJsExportClause, AnyJsExportDefaultDeclaration, AnyJsExpression, AnyJsImportLike,
     AnyJsObjectBindingPatternMember, AnyJsRoot, AnyTsIdentifierBinding, AnyTsModuleName,
-    JsExportDefaultExpressionClause, JsExportFromClause, JsExportNamedFromClause,
-    JsExportNamedSpecifierList, JsIdentifierBinding, JsVariableDeclaratorList, unescape_js_string,
+    JsExportFromClause, JsExportNamedFromClause, JsExportNamedSpecifierList, JsIdentifierBinding,
+    JsVariableDeclaratorList, unescape_js_string,
 };
-use biome_js_type_info::Type;
+use biome_js_type_info::{ImportSymbol, TypeData, TypeReference, TypeResolver};
+use biome_jsdoc_comment::JsdocComment;
+use biome_resolver::{ResolveOptions, resolve};
 use biome_rowan::{AstNode, TokenText, WalkEvent};
-use camino::{Utf8Path, Utf8PathBuf};
-use oxc_resolver::{ResolveError, ResolverGeneric};
+use camino::Utf8Path;
 
 use crate::{
-    JsExport, JsImport, JsImportSymbol, JsModuleInfo, JsOwnExport, JsReexport,
-    jsdoc_comment::JsdocComment, resolver_cache::ResolverCache,
+    JsExport, JsImport, JsModuleInfo, JsOwnExport, JsReexport, SUPPORTED_TYPE_EXTENSIONS,
+    module_graph::ModuleGraphFsProxy,
 };
 
-use super::{JsResolvedPath, collector::JsModuleInfoCollector};
+use super::{ResolvedPath, collector::JsModuleInfoCollector};
 
 pub(crate) struct JsModuleVisitor<'a> {
     root: AnyJsRoot,
     directory: &'a Utf8Path,
-    resolver: &'a ResolverGeneric<ResolverCache<'a>>,
+    fs_proxy: &'a ModuleGraphFsProxy<'a>,
 }
 
 impl<'a> JsModuleVisitor<'a> {
-    pub fn new(
-        root: AnyJsRoot,
-        directory: &'a Utf8Path,
-        resolver: &'a ResolverGeneric<ResolverCache<'a>>,
-    ) -> Self {
+    pub fn new(root: AnyJsRoot, directory: &'a Utf8Path, fs_proxy: &'a ModuleGraphFsProxy) -> Self {
         Self {
             root,
             directory,
-            resolver,
+            fs_proxy,
         }
     }
 
@@ -92,7 +89,7 @@ impl<'a> JsModuleVisitor<'a> {
                 self.visit_export_default_declaration_clause(&node.declaration().ok()?, collector)
             }
             AnyJsExportClause::JsExportDefaultExpressionClause(node) => {
-                self.visit_export_default_expression_clause(&node, collector)
+                self.visit_export_default_expression(&node.expression().ok()?, collector)
             }
             AnyJsExportClause::JsExportFromClause(node) => {
                 self.visit_export_from_clause(node, collector)
@@ -108,12 +105,8 @@ impl<'a> JsModuleVisitor<'a> {
                 let name = token.token_text_trimmed();
                 collector.register_export_with_name(name, None)
             }
-            AnyJsExportClause::TsExportAssignmentClause(_) => {
-                // This is somewhat misleading, since the `export =` syntax is
-                // used for CommonJS exports rather than ES6 `default` exports.
-                // Thankfully, bundlers are responsible for normalising this,
-                // which isn't really Biome's concern.
-                collector.register_export_with_name("default", None)
+            AnyJsExportClause::TsExportAssignmentClause(node) => {
+                self.visit_export_default_expression(&node.expression().ok()?, collector)
             }
             AnyJsExportClause::TsExportDeclareClause(node) => {
                 self.visit_export_declaration_clause(node.declaration().ok()?, collector)
@@ -184,17 +177,19 @@ impl<'a> JsModuleVisitor<'a> {
         collector.register_export_with_name("default", Some(name))
     }
 
-    fn visit_export_default_expression_clause(
+    fn visit_export_default_expression(
         &self,
-        node: &JsExportDefaultExpressionClause,
+        node: &AnyJsExpression,
         collector: &mut JsModuleInfoCollector,
     ) -> Option<()> {
+        let type_data = TypeData::from_any_js_expression(collector, node);
+        let ty: TypeReference = collector.register_and_resolve(type_data).into();
         collector.register_export(
             "default",
             JsExport::Own(JsOwnExport {
                 jsdoc_comment: None,
                 local_name: None,
-                ty: Type::from_any_js_expression(&node.expression().ok()?),
+                ty,
             }),
         )
     }
@@ -212,7 +207,7 @@ impl<'a> JsModuleVisitor<'a> {
         let import = JsImport {
             resolved_path: self.resolved_path_from_specifier(&specifier),
             specifier: specifier.into(),
-            symbol: JsImportSymbol::All,
+            symbol: ImportSymbol::All,
         };
         let jsdoc_comment = node
             .syntax()
@@ -275,7 +270,7 @@ impl<'a> JsModuleVisitor<'a> {
                     import: JsImport {
                         specifier: import_specifier.clone().into(),
                         resolved_path: resolved_path.clone(),
-                        symbol: JsImportSymbol::Named(imported_name),
+                        symbol: ImportSymbol::Named(imported_name),
                     },
                     jsdoc_comment: None,
                 }),
@@ -401,16 +396,17 @@ impl<'a> JsModuleVisitor<'a> {
         collector.register_export_with_name(name.clone(), Some(name))
     }
 
-    fn resolved_path_from_specifier(&self, specifier: &str) -> JsResolvedPath {
-        let resolved_path = self
-            .resolver
-            .resolve(self.directory, specifier)
-            .and_then(|resolution| {
-                Utf8PathBuf::from_path_buf(resolution.into_path_buf())
-                    .map_err(|path| ResolveError::NotFound(path.to_string_lossy().to_string()))
-            })
-            .map_err(|error| error.to_string());
-        JsResolvedPath::new(resolved_path)
+    fn resolved_path_from_specifier(&self, specifier: &str) -> ResolvedPath {
+        let options = ResolveOptions {
+            condition_names: &["types", "default"],
+            default_files: &["index"],
+            extensions: SUPPORTED_TYPE_EXTENSIONS,
+            resolve_node_builtins: true,
+            resolve_types: true,
+            ..Default::default()
+        };
+        let resolved_path = resolve(specifier, self.directory, self.fs_proxy, &options);
+        ResolvedPath::new(resolved_path)
     }
 }
 

@@ -53,7 +53,7 @@ declare_lint_rule! {
     /// ```
     ///
     pub UseNumericSeparators {
-        version: "next",
+        version: "2.0.0",
         name: "useNumericSeparators",
         language: "js",
         sources: &[RuleSource::EslintUnicorn("numeric-separators-style"), RuleSource::Clippy("unreadable_literal")],
@@ -72,6 +72,11 @@ impl Rule for UseNumericSeparators {
     fn run(ctx: &RuleContext<Self>) -> Self::Signals {
         let token = ctx.query().value_token().ok()?;
         let raw = token.text_trimmed();
+
+        // Skip check for short numeric literals where separators don't improve readability.
+        if raw.len() <= 3 {
+            return None;
+        }
 
         let expected = format_numeric_literal(raw);
 
@@ -164,7 +169,7 @@ fn format_numeric_literal(raw: &str) -> String {
 
     while let Some(b) = bytes.next() {
         match b {
-            b'_' => continue,
+            b'_' => {}
             b'0' if !prefix_parsed && !in_fraction => {
                 if let Some(&next) = bytes.peek() {
                     let opts = match next {

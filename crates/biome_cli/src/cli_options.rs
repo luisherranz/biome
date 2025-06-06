@@ -24,7 +24,12 @@ pub struct CliOptions {
 
     /// Set the file path to the configuration file, or the directory path to find `biome.json` or `biome.jsonc`.
     /// If used, it disables the default configuration file resolution.
-    #[bpaf(long("config-path"), argument("PATH"), optional)]
+    #[bpaf(
+        long("config-path"),
+        env("BIOME_CONFIG_PATH"),
+        argument("PATH"),
+        optional
+    )]
     pub config_path: Option<String>,
 
     /// Cap the amount of diagnostics displayed. When `none` is provided, the limit is lifted.
@@ -37,8 +42,8 @@ pub struct CliOptions {
     pub max_diagnostics: MaxDiagnostics,
 
     /// Skip over files containing syntax errors instead of emitting an error diagnostic.
-    #[bpaf(long("skip-errors"), switch)]
-    pub skip_errors: bool,
+    #[bpaf(long("skip-parse-errors"), switch)]
+    pub skip_parse_errors: bool,
 
     /// Silence errors that would be emitted in case no files were processed during the execution of the command.
     #[bpaf(long("no-errors-on-unmatched"), switch)]
@@ -56,15 +61,22 @@ pub struct CliOptions {
     )]
     pub reporter: CliReporter,
 
+    /// Optional path to redirect log messages to.
+    ///
+    /// If omitted, logs are printed to stdout.
+    #[bpaf(long("log-file"))]
+    pub log_file: Option<String>,
+
+    /// The level of logging. In order, from the most verbose to the least
+    /// verbose: debug, info, warn, error.
+    ///
+    /// The value `none` won't show any logging.
     #[bpaf(
         long("log-level"),
         argument("none|debug|info|warn|error"),
         fallback(LoggingLevel::default()),
         display_fallback
     )]
-    /// The level of logging. In order, from the most verbose to the least verbose: debug, info, warn, error.
-    ///
-    /// The value `none` won't show any logging.
     pub log_level: LoggingLevel,
 
     /// How the log should look like.
@@ -91,7 +103,11 @@ impl CliOptions {
     pub(crate) fn as_configuration_path_hint(&self) -> ConfigurationPathHint {
         match self.config_path.as_ref() {
             None => ConfigurationPathHint::default(),
-            Some(path) => ConfigurationPathHint::FromUser(Utf8PathBuf::from(path)),
+            Some(path) => {
+                let path = Utf8PathBuf::from(path);
+                let path = path.strip_prefix("./").unwrap_or(&path);
+                ConfigurationPathHint::FromUser(path.to_path_buf())
+            }
         }
     }
 }
@@ -116,7 +132,7 @@ impl FromStr for ColorsArg {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub enum CliReporter {
     /// The default reporter
     #[default]
@@ -184,6 +200,13 @@ impl MaxDiagnostics {
         match self {
             Self::None => None,
             Self::Limit(value) => Some(*value),
+        }
+    }
+
+    pub fn exceeded(&self, count: usize) -> bool {
+        match self {
+            Self::None => false,
+            Self::Limit(limit) => count as u32 > *limit,
         }
     }
 }

@@ -1,5 +1,5 @@
 use crate::TraversalMode;
-use crate::execute::diagnostics::ResultExt;
+use crate::execute::diagnostics::{ResultExt, SkippedDiagnostic};
 use crate::execute::process_file::workspace_file::WorkspaceFile;
 use crate::execute::process_file::{FileResult, FileStatus, Message, SharedTraversalOptions};
 use biome_analyze::RuleCategories;
@@ -8,7 +8,6 @@ use biome_fs::{BiomePath, TraversalContext};
 use biome_rowan::TextSize;
 use biome_service::diagnostics::FileTooLarge;
 use biome_service::file_handlers::{AstroFileHandler, SvelteFileHandler, VueFileHandler};
-use std::sync::atomic::Ordering;
 use tracing::{info, instrument};
 
 /// Lints a single file and returns a [FileResult]
@@ -111,14 +110,21 @@ pub(crate) fn analyze_with_guard<'ctx>(
         }
     }
 
-    let max_diagnostics = ctx.remaining_diagnostics.load(Ordering::Relaxed);
     let pull_diagnostics_result = workspace_file
         .guard()
-        .pull_diagnostics(categories, max_diagnostics, only, skip)
+        .pull_diagnostics(categories, only, skip, true)
         .with_file_path_and_code(
             workspace_file.path.to_string(),
             ctx.execution.as_diagnostic_category(),
         )?;
+
+    let skip_parse_errors = ctx.execution.should_skip_parse_errors();
+    if pull_diagnostics_result.errors > 0 && skip_parse_errors {
+        ctx.push_message(Message::from(
+            SkippedDiagnostic.with_file_path(workspace_file.path.to_string()),
+        ));
+        return Ok(FileStatus::Ignored);
+    }
 
     let no_diagnostics = pull_diagnostics_result.diagnostics.is_empty()
         && pull_diagnostics_result.skipped_diagnostics == 0;
