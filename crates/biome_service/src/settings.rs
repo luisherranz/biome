@@ -710,6 +710,10 @@ impl VcsSettings {
         self.enabled.unwrap_or_default().into()
     }
 
+    pub fn should_use_ignore_file(&self) -> bool {
+        self.use_ignore_file.unwrap_or_default().into()
+    }
+
     pub fn to_base_path(&self, base_path: Option<&Utf8Path>) -> Option<Utf8PathBuf> {
         Some(match (base_path, &self.root) {
             (Some(vcs_base_path), Some(root)) => vcs_base_path.join(root),
@@ -1691,6 +1695,12 @@ fn to_json_language_settings(
         .allow_trailing_commas
         .or(parent_parser.allow_trailing_commas);
 
+    let linter = conf.linter.take().unwrap_or_default();
+    language_setting.linter.enabled = linter.enabled;
+
+    let assist = conf.assist.take().unwrap_or_default();
+    language_setting.assist.enabled = assist.enabled;
+
     language_setting
 }
 
@@ -1711,6 +1721,12 @@ fn to_css_language_settings(
     language_setting.parser.css_modules_enabled =
         parser.css_modules.or(parent_parser.css_modules_enabled);
 
+    let linter = conf.linter.take().unwrap_or_default();
+    language_setting.linter.enabled = linter.enabled;
+
+    let assist = conf.assist.take().unwrap_or_default();
+    language_setting.assist.enabled = assist.enabled;
+
     language_setting
 }
 
@@ -1723,6 +1739,12 @@ fn to_graphql_language_settings(
 
     language_setting.formatter = formatter.into();
 
+    let linter = conf.linter.take().unwrap_or_default();
+    language_setting.linter.enabled = linter.enabled;
+
+    let assist = conf.assist.take().unwrap_or_default();
+    language_setting.assist.enabled = assist.enabled;
+
     language_setting
 }
 
@@ -1734,6 +1756,12 @@ fn to_grit_language_settings(
     let formatter = conf.formatter.take().unwrap_or_default();
 
     language_setting.formatter = formatter.into();
+
+    let linter = conf.linter.take().unwrap_or_default();
+    language_setting.linter = linter.into();
+
+    let assist = conf.assist.take().unwrap_or_default();
+    language_setting.assist = assist.into();
 
     language_setting
 }
