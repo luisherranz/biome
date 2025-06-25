@@ -276,9 +276,17 @@ fn format_signature(
                     let should_hug =
                         is_test_call_argument(arrow.syntax())? || is_first_or_last_call_argument;
                     let parentheses_not_needed = can_avoid_parentheses(arrow, f);
+                    let should_insert_space_inside_parenthesis =
+                        f.options().delimiter_spacing().value();
 
                     if !parentheses_not_needed {
-                        write!(f, [text("(")])?;
+                        write!(
+                            f,
+                            [
+                                text("("),
+                                maybe_space(should_insert_space_inside_parenthesis)
+                            ]
+                        )?;
                     }
 
                     if should_hug || parentheses_not_needed {
@@ -294,7 +302,13 @@ fn format_signature(
                     }
 
                     if !parentheses_not_needed {
-                        write!(f, [text(")")])?;
+                        write!(
+                            f,
+                            [
+                                maybe_space(should_insert_space_inside_parenthesis),
+                                text(")")
+                            ]
+                        )?;
                     }
                 }
                 AnyJsArrowFunctionParameters::JsParameters(params) => {
