@@ -6,6 +6,14 @@ info: js/module/delimiter-spacing/delimiter_spacing.js
 
 ```js
 var foo = require("foo");
+
+test.expect(t => {
+    t.true(a)
+});
+
+test.expect(t => {
+    t.true(a)
+}, false);
 ```
 
 
@@ -35,6 +43,14 @@ Expand lists: Auto
 
 ```js
 var foo = require("foo");
+
+test.expect((t) => {
+	t.true(a);
+});
+
+test.expect((t) => {
+	t.true(a);
+}, false);
 ```
 
 ## Output 1
@@ -59,4 +75,12 @@ Expand lists: Auto
 
 ```js
 var foo = require( "foo" );
+
+test.expect( ( t ) => {
+	t.true(a);
+} );
+
+test.expect( ( t ) => {
+	t.true(a);
+}, false );
 ```
