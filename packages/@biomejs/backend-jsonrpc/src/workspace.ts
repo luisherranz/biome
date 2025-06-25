@@ -1571,6 +1571,10 @@ export interface Nursery {
 	 */
 	noGlobalDirnameFilename?: RuleFixConfiguration_for_Null;
 	/**
+	 * Disallow shorthand type conversions.
+	 */
+	noImplicitCoercion?: RuleFixConfiguration_for_Null;
+	/**
 	 * Prevent import cycles.
 	 */
 	noImportCycles?: RuleConfiguration_for_Null;
@@ -1722,6 +1726,10 @@ export interface Nursery {
 	 * Require a description parameter for the Symbol().
 	 */
 	useSymbolDescription?: RuleConfiguration_for_Null;
+	/**
+	 * Disallow overload signatures that can be unified into a single signature.
+	 */
+	useUnifiedTypeSignature?: RuleFixConfiguration_for_Null;
 	/**
 	 * Prevent the usage of static string literal id attribute on elements.
 	 */
@@ -2050,6 +2058,10 @@ export interface Style {
  * A list of rules that belong to this group
  */
 export interface Suspicious {
+	/**
+	 * Disallow the use of alert, confirm, and prompt.
+	 */
+	noAlert?: RuleConfiguration_for_Null;
 	/**
 	 * Use standard constants instead of approximated literals.
 	 */
@@ -3609,6 +3621,7 @@ export type Category =
 	| "lint/nursery/noExcessiveLinesPerFunction"
 	| "lint/nursery/noFloatingPromises"
 	| "lint/nursery/noGlobalDirnameFilename"
+	| "lint/nursery/noImplicitCoercion"
 	| "lint/nursery/noImportCycles"
 	| "lint/nursery/noImportantInKeyframe"
 	| "lint/nursery/noImportantStyles"
@@ -3666,6 +3679,7 @@ export type Category =
 	| "lint/nursery/useSortedClasses"
 	| "lint/nursery/useSortedProperties"
 	| "lint/nursery/useSymbolDescription"
+	| "lint/nursery/useUnifiedTypeSignature"
 	| "lint/nursery/useUniqueElementIds"
 	| "lint/performance/noAccumulatingSpread"
 	| "lint/performance/noBarrelFile"
@@ -3742,6 +3756,7 @@ export type Category =
 	| "lint/style/useThrowNewError"
 	| "lint/style/useThrowOnlyError"
 	| "lint/style/useTrimStartEnd"
+	| "lint/suspicious/noAlert"
 	| "lint/suspicious/noApproximativeNumericConstant"
 	| "lint/suspicious/noArrayIndexKey"
 	| "lint/suspicious/noAssignInExpressions"
