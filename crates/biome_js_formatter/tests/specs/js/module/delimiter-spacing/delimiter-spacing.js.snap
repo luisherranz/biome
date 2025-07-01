@@ -1,0 +1,635 @@
+---
+source: crates/biome_formatter_test/src/snapshot_builder.rs
+info: js/module/delimiter-spacing/delimiter-spacing.js
+---
+# Input
+
+```js
+// Array Literals
+const arr1 = [];
+const arr2 = [1];
+const arr3 = [1, 2];
+const arr4 = [[1]];
+const arr5 = [...arr1];
+const arr6 = [,,1,];
+const arr7 = [, /* comment */];
+const arr8 = [/* comment */,];
+
+// Array Destructuring
+let [a] = arr2;
+let [b, c] = arr3;
+let [d = 1] = arr2;
+let [...e] = arr3;
+let [f, ...g] = arr3;
+let [/* comment */ h] = arr2;
+let [i /* comment */] = arr2;
+
+function arrayDestructuringInParams([param1, param2]) {}
+const arrowWithArrayDestructuring = ([param1, param2]) => {};
+
+// Array access
+const firstElement = arr1[0];
+
+// Object Literals
+const obj1 = {};
+const obj2 = { key: "value" };
+const obj3 = { key1: "value1", key2: "value2" };
+const obj4 = { ...obj2 };
+const obj5 = { ["computed"]: "value" };
+const obj6 = { /* comment */ key: "value" };
+const obj7 = { key: "value" /* comment */ };
+
+// Object Destructuring
+let { key } = obj2;
+let { key1, key2 } = obj3;
+let { key: newName } = obj2;
+let { ...restObj } = obj3;
+let { key1: n1, ...rest2 } = obj3;
+let { /* comment */ keyC } = obj2;
+let { keyD /* comment */ } = obj2;
+
+function objectDestructuringInParams({ param1, param2 }) {}
+const arrowWithObjectDestructuring = ({ param1, param2 }) => {};
+
+// Call expressions
+foo();
+foo(1);
+foo(1, 2);
+foo([1, 2]);
+foo({ a: 1 });
+foo(function() {});
+foo(() => {});
+foo(1)();
+foo?.();
+foo?.(1);
+foo?.(1, 2);
+foo?.([1, 2]);
+foo?.({ a: 1 });
+foo?.(function() {});
+foo?.(() => {});
+
+// Function parameters
+function foo() {}
+function foo(a) {}
+function foo(a, b) {}
+function foo(a, /* comment */ b) {}
+function foo(a, b, ) {} // Trailing comma
+
+// Arrow function parameters
+const foo = () => {};
+const foo = (a) => {};
+const foo = (a, b) => {};
+const foo = (a, /* comment */ b) => {};
+const foo = (a, b, ) => {}; // Trailing comma
+const foo = ({ a, b }) => {};
+const foo = (a = 1) => {};
+const foo = async () => {};
+const foo = async (a) => {};
+const foo = () => ({}); // Implicit object return
+const foo = () => () => {}; // Returning another arrow function
+const foo = (a, // comment
+b) => {};
+const foo = (
+    // comment
+    a,
+    b
+) => {};
+
+// Class declarations and expressions
+class MyClass {}
+class MyClass {
+  constructor() {}
+  constructor(a) {}
+  method1() {}
+  method2(a) {}
+  method3(a, b) {}
+  method4({ p1, p2 }) {}
+  method5([p1, p2]) {}
+  async method6() {}
+  *method7() {}
+  get propName() { return 1; }
+  set propName(value) {}
+  static staticMethod() {}
+}
+const MyClassExpr1 = class {};
+const MyClassExpr2 = class {
+  constructor() {}
+};
+
+// Statements
+if (true) { foo(); }
+if ((a && b)) {}
+for (let i = 0; i < 1; i++) {}
+while (true) { break; }
+while (x>0) { break; }
+try {} catch (e) {} finally {}
+try {} catch ({ error }) {} finally {}
+try {} catch ([error]) {} finally {}
+switch (varName) { case 1: break; default: break; }
+
+// Parentheses in expressions
+(function() {})();
+(class {});
+(async function() { await Promise.resolve(1); })();
+const sequenceExpr = (1, 2, 3);
+const sequenceExprWithComment = (1, /* comment */ 2, 3);
+const parenAwait = (await foo) || 1;
+const optionalCallWithParenAwait = (await foo)?.();
+
+// Decorators
+@decorator
+class DecoratedClass {}
+
+@decoratorFactory()
+class DecoratedClassFactory {}
+
+@decoratorWithParams(1, 2)
+class DecoratedClassWithParams {}
+
+@decoratorWithArray([1, 2])
+class DecoratedClassWithArray {}
+
+@decoratorWithObject({ a: 1 })
+class DecoratedClassWithObject {}
+
+class ClassWithDecoratedMethod {
+  @methodDecorator
+  method() {}
+
+  @methodDecoratorFactory()
+  methodFactory() {}
+
+  @methodDecoratorWithParams(1, 2)
+  methodWithParams() {}
+}
+
+// Template Literals
+const templateInterpolation1 = `${"expression"}`;
+const templateInterpolation2 = `${123}`;
+const templateInterpolation3 = `${call()}`;
+const templateInterpolation4 = `${obj.prop}`;
+const template1 = `${[1, 2]}`;
+const template2 = `${{ a: 1 }}`;
+const template3 = `${() => {}}`;
+const template4 = `Hello ${name}, you are ${getAge(user)}`;
+const template5 = `Coordinates: ${point[0]}, ${point[1]}`;
+
+// New expressions
+const newExpr1 = new MyClass1();
+const newExpr2 = new MyClass2(1);
+const newExpr3 = new (MyClassExpr1)();
+const newExpr4 = new (AnotherClass())();
+```
+
+
+=============================
+
+# Outputs
+
+## Output 1
+
+-----
+Indent style: Tab
+Indent width: 2
+Line ending: LF
+Line width: 80
+Quote style: Double Quotes
+JSX quote style: Double Quotes
+Quote properties: As needed
+Trailing commas: All
+Semicolons: Always
+Arrow parentheses: Always
+Bracket spacing: true
+Delimiter spacing: false
+Bracket same line: false
+Attribute Position: Auto
+Expand lists: Auto
+-----
+
+```js
+// Array Literals
+const arr1 = [];
+const arr2 = [1];
+const arr3 = [1, 2];
+const arr4 = [[1]];
+const arr5 = [...arr1];
+const arr6 = [, , 1];
+const arr7 = [/* comment */ ,];
+const arr8 = [/* comment */ ,];
+
+// Array Destructuring
+let [a] = arr2;
+let [b, c] = arr3;
+let [d = 1] = arr2;
+let [...e] = arr3;
+let [f, ...g] = arr3;
+let [/* comment */ h] = arr2;
+let [i /* comment */] = arr2;
+
+function arrayDestructuringInParams([param1, param2]) {}
+const arrowWithArrayDestructuring = ([param1, param2]) => {};
+
+// Array access
+const firstElement = arr1[0];
+
+// Object Literals
+const obj1 = {};
+const obj2 = { key: "value" };
+const obj3 = { key1: "value1", key2: "value2" };
+const obj4 = { ...obj2 };
+const obj5 = { ["computed"]: "value" };
+const obj6 = { /* comment */ key: "value" };
+const obj7 = { key: "value" /* comment */ };
+
+// Object Destructuring
+let { key } = obj2;
+let { key1, key2 } = obj3;
+let { key: newName } = obj2;
+let { ...restObj } = obj3;
+let { key1: n1, ...rest2 } = obj3;
+let { /* comment */ keyC } = obj2;
+let { keyD /* comment */ } = obj2;
+
+function objectDestructuringInParams({ param1, param2 }) {}
+const arrowWithObjectDestructuring = ({ param1, param2 }) => {};
+
+// Call expressions
+foo();
+foo(1);
+foo(1, 2);
+foo([1, 2]);
+foo({ a: 1 });
+foo(function () {});
+foo(() => {});
+foo(1)();
+foo?.();
+foo?.(1);
+foo?.(1, 2);
+foo?.([1, 2]);
+foo?.({ a: 1 });
+foo?.(function () {});
+foo?.(() => {});
+
+// Function parameters
+function foo() {}
+function foo(a) {}
+function foo(a, b) {}
+function foo(a, /* comment */ b) {}
+function foo(a, b) {} // Trailing comma
+
+// Arrow function parameters
+const foo = () => {};
+const foo = (a) => {};
+const foo = (a, b) => {};
+const foo = (a, /* comment */ b) => {};
+const foo = (a, b) => {}; // Trailing comma
+const foo = ({ a, b }) => {};
+const foo = (a = 1) => {};
+const foo = async () => {};
+const foo = async (a) => {};
+const foo = () => ({}); // Implicit object return
+const foo = () => () => {}; // Returning another arrow function
+const foo = (
+	a, // comment
+	b,
+) => {};
+const foo = (
+	// comment
+	a,
+	b,
+) => {};
+
+// Class declarations and expressions
+class MyClass {}
+class MyClass {
+	constructor() {}
+	constructor(a) {}
+	method1() {}
+	method2(a) {}
+	method3(a, b) {}
+	method4({ p1, p2 }) {}
+	method5([p1, p2]) {}
+	async method6() {}
+	*method7() {}
+	get propName() {
+		return 1;
+	}
+	set propName(value) {}
+	static staticMethod() {}
+}
+const MyClassExpr1 = class {};
+const MyClassExpr2 = class {
+	constructor() {}
+};
+
+// Statements
+if (true) {
+	foo();
+}
+if (a && b) {
+}
+for (let i = 0; i < 1; i++) {}
+while (true) {
+	break;
+}
+while (x > 0) {
+	break;
+}
+try {
+} catch (e) {
+} finally {
+}
+try {
+} catch ({ error }) {
+} finally {
+}
+try {
+} catch ([error]) {
+} finally {
+}
+switch (varName) {
+	case 1:
+		break;
+	default:
+		break;
+}
+
+// Parentheses in expressions
+(function () {})();
+(class {});
+(async function () {
+	await Promise.resolve(1);
+})();
+const sequenceExpr = (1, 2, 3);
+const sequenceExprWithComment = (1, /* comment */ 2, 3);
+const parenAwait = (await foo) || 1;
+const optionalCallWithParenAwait = (await foo)?.();
+
+// Decorators
+@decorator
+class DecoratedClass {}
+
+@decoratorFactory()
+class DecoratedClassFactory {}
+
+@decoratorWithParams(1, 2)
+class DecoratedClassWithParams {}
+
+@decoratorWithArray([1, 2])
+class DecoratedClassWithArray {}
+
+@decoratorWithObject({ a: 1 })
+class DecoratedClassWithObject {}
+
+class ClassWithDecoratedMethod {
+	@methodDecorator
+	method() {}
+
+	@methodDecoratorFactory()
+	methodFactory() {}
+
+	@methodDecoratorWithParams(1, 2)
+	methodWithParams() {}
+}
+
+// Template Literals
+const templateInterpolation1 = `${"expression"}`;
+const templateInterpolation2 = `${123}`;
+const templateInterpolation3 = `${call()}`;
+const templateInterpolation4 = `${obj.prop}`;
+const template1 = `${[1, 2]}`;
+const template2 = `${{ a: 1 }}`;
+const template3 = `${() => {}}`;
+const template4 = `Hello ${name}, you are ${getAge(user)}`;
+const template5 = `Coordinates: ${point[0]}, ${point[1]}`;
+
+// New expressions
+const newExpr1 = new MyClass1();
+const newExpr2 = new MyClass2(1);
+const newExpr3 = new MyClassExpr1();
+const newExpr4 = new (AnotherClass())();
+```
+
+## Output 1
+
+-----
+Indent style: Tab
+Indent width: 2
+Line ending: LF
+Line width: 80
+Quote style: Double Quotes
+JSX quote style: Double Quotes
+Quote properties: As needed
+Trailing commas: All
+Semicolons: Always
+Arrow parentheses: Always
+Bracket spacing: true
+Delimiter spacing: true
+Bracket same line: false
+Attribute Position: Auto
+Expand lists: Auto
+-----
+
+```js
+// Array Literals
+const arr1 = [];
+const arr2 = [ 1 ];
+const arr3 = [ 1, 2 ];
+const arr4 = [ [ 1 ] ];
+const arr5 = [ ...arr1 ];
+const arr6 = [ , , 1 ];
+const arr7 = [ /* comment */ , ];
+const arr8 = [ /* comment */ , ];
+
+// Array Destructuring
+let [ a ] = arr2;
+let [ b, c ] = arr3;
+let [ d = 1 ] = arr2;
+let [ ...e ] = arr3;
+let [ f, ...g ] = arr3;
+let [ /* comment */ h ] = arr2;
+let [ i /* comment */ ] = arr2;
+
+function arrayDestructuringInParams( [ param1, param2 ] ) {}
+const arrowWithArrayDestructuring = ( [ param1, param2 ] ) => {};
+
+// Array access
+const firstElement = arr1[0];
+
+// Object Literals
+const obj1 = {};
+const obj2 = { key: "value" };
+const obj3 = { key1: "value1", key2: "value2" };
+const obj4 = { ...obj2 };
+const obj5 = { ["computed"]: "value" };
+const obj6 = { /* comment */ key: "value" };
+const obj7 = { key: "value" /* comment */ };
+
+// Object Destructuring
+let { key } = obj2;
+let { key1, key2 } = obj3;
+let { key: newName } = obj2;
+let { ...restObj } = obj3;
+let { key1: n1, ...rest2 } = obj3;
+let { /* comment */ keyC } = obj2;
+let { keyD /* comment */ } = obj2;
+
+function objectDestructuringInParams( { param1, param2 } ) {}
+const arrowWithObjectDestructuring = ( { param1, param2 } ) => {};
+
+// Call expressions
+foo();
+foo(1);
+foo(1, 2);
+foo( [ 1, 2 ] );
+foo( { a: 1 } );
+foo( function () {} );
+foo( () => {} );
+foo(1)();
+foo?.();
+foo?.(1);
+foo?.(1, 2);
+foo?.( [ 1, 2 ] );
+foo?.( { a: 1 } );
+foo?.( function () {} );
+foo?.( () => {} );
+
+// Function parameters
+function foo() {}
+function foo( a ) {}
+function foo( a, b ) {}
+function foo( a, /* comment */ b ) {}
+function foo( a, b ) {} // Trailing comma
+
+// Arrow function parameters
+const foo = () => {};
+const foo = ( a ) => {};
+const foo = ( a, b ) => {};
+const foo = ( a, /* comment */ b ) => {};
+const foo = ( a, b ) => {}; // Trailing comma
+const foo = ( { a, b } ) => {};
+const foo = ( a = 1 ) => {};
+const foo = async () => {};
+const foo = async ( a ) => {};
+const foo = () => ({}); // Implicit object return
+const foo = () => () => {}; // Returning another arrow function
+const foo = (
+	a, // comment
+	b,
+) => {};
+const foo = (
+	// comment
+	a,
+	b,
+) => {};
+
+// Class declarations and expressions
+class MyClass {}
+class MyClass {
+	constructor() {}
+	constructor( a ) {}
+	method1() {}
+	method2( a ) {}
+	method3( a, b ) {}
+	method4( { p1, p2 } ) {}
+	method5( [ p1, p2 ] ) {}
+	async method6() {}
+	*method7() {}
+	get propName() {
+		return 1;
+	}
+	set propName( value ) {}
+	static staticMethod() {}
+}
+const MyClassExpr1 = class {};
+const MyClassExpr2 = class {
+	constructor() {}
+};
+
+// Statements
+if ( true ) {
+	foo();
+}
+if ( a && b ) {
+}
+for (let i = 0; i < 1; i++) {}
+while (true) {
+	break;
+}
+while (x > 0) {
+	break;
+}
+try {
+} catch ( e ) {
+} finally {
+}
+try {
+} catch ( { error } ) {
+} finally {
+}
+try {
+} catch ( [ error ] ) {
+} finally {
+}
+switch (varName) {
+	case 1:
+		break;
+	default:
+		break;
+}
+
+// Parentheses in expressions
+(function () {})();
+(class {});
+(async function () {
+	await Promise.resolve(1);
+})();
+const sequenceExpr = (1, 2, 3);
+const sequenceExprWithComment = (1, /* comment */ 2, 3);
+const parenAwait = (await foo) || 1;
+const optionalCallWithParenAwait = ( await foo )?.();
+
+// Decorators
+@decorator
+class DecoratedClass {}
+
+@decoratorFactory()
+class DecoratedClassFactory {}
+
+@decoratorWithParams(1, 2)
+class DecoratedClassWithParams {}
+
+@decoratorWithArray( [ 1, 2 ] )
+class DecoratedClassWithArray {}
+
+@decoratorWithObject( { a: 1 } )
+class DecoratedClassWithObject {}
+
+class ClassWithDecoratedMethod {
+	@methodDecorator
+	method() {}
+
+	@methodDecoratorFactory()
+	methodFactory() {}
+
+	@methodDecoratorWithParams(1, 2)
+	methodWithParams() {}
+}
+
+// Template Literals
+const templateInterpolation1 = `${ "expression" }`;
+const templateInterpolation2 = `${ 123 }`;
+const templateInterpolation3 = `${ call() }`;
+const templateInterpolation4 = `${ obj.prop }`;
+const template1 = `${ [ 1, 2 ] }`;
+const template2 = `${ { a: 1 } }`;
+const template3 = `${ () => {} }`;
+const template4 = `Hello ${ name }, you are ${ getAge(user) }`;
+const template5 = `Coordinates: ${ point[0] }, ${ point[1] }`;
+
+// New expressions
+const newExpr1 = new MyClass1();
+const newExpr2 = new MyClass2(1);
+const newExpr3 = new MyClassExpr1();
+const newExpr4 = new (AnotherClass())();
+```
