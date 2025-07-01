@@ -294,10 +294,10 @@ fn format_signature(
                     } else {
                         write!(
                             f,
-                            [&soft_block_indent(&format_args![
-                                binding.format(),
-                                FormatTrailingCommas::All
-                            ])]
+                            [&soft_block_indent_with_maybe_space(
+                                &format_args![binding.format(), FormatTrailingCommas::All],
+                                should_insert_space_inside_parenthesis
+                            )]
                         )?
                     }
 
