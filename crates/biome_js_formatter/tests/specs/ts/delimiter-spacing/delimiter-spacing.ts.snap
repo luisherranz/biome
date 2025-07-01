@@ -1,0 +1,765 @@
+---
+source: crates/biome_formatter_test/src/snapshot_builder.rs
+info: ts/delimiter-spacing/delimiter-spacing.ts
+---
+# Input
+
+```ts
+// Function Signatures (Parameters and Return Types)
+function tsFunc1(): void {}
+function tsFunc2(a: string): number { return 1; }
+function tsFunc3(a: string, b: number): boolean { return true; }
+function tsFunc4(a: string, b?: number, ...rest: any[]): void {}
+function tsFunc5<T>(a: T): T { return a; }
+function tsFunc6<T, U extends T>(a: T, b: U): Map<T, U> { return new Map(); }
+
+// Arrow Functions (Parameters, Return Types, Generics)
+const tsArrow1 = (): void => {};
+const tsArrow2 = (a: string): number => 1;
+const tsArrow5 = (a: { b: string; c?: number }): void => {};
+const tsArrow3 = <T>(a: T): T => a;
+const tsArrow4 = <T extends number[]>(a: T): number => a.length;
+const tsArrow6 = (a: string, // comment
+b: number): void => {};
+const tsArrow7 = (
+    // comment
+    a: string,
+    b: number
+): void => {};
+
+// Class Declarations and Expressions
+class TsClass1 {
+    constructor() {}
+    constructor(a: string) {} // Overload
+    method1(): void {}
+    method2(a: string): number { return 1; }
+    method3<T>(a: T): T { return a; }
+    private _prop: string = "";
+    get prop(): string { return this._prop; }
+    set prop(value: string) { this._prop = value; }
+    static staticMethod<T>(param: T): void {}
+    constructor(private name: string, public age: number) {} // Parameter properties
+}
+const tsClassExpr = class<T> {
+    constructor(value: T) {}
+    getValue(): T { return this.value; }
+    private value: T;
+};
+
+// Interfaces
+interface TsInterface1 {}
+interface TsInterface2 {
+    prop: string;
+    method1(): void;
+    method2(a: string): number;
+    new (a: number): TsClass1; // Construct signature
+    (a: number): string;      // Call signature
+    <T>(a: T): T;             // Generic call signature
+    readonly [index: number]: string; // Index signature
+}
+interface TsInterface3<T> {
+    data: T;
+    transform: (input: T) => string;
+}
+
+// Type Aliases
+type TsType1 = string;
+type TsType2 = { a: number; b: string };
+type TsType3 = (a: number) => string;
+type TsType4<T> = { data: T };
+type TsType5 = TsType2 | { c: boolean };
+type TsType6 = [string, number]; // Tuple
+type TsType7 = string & number; // Intersection (not directly delimiter related but good context)
+type TsType8 = keyof TsInterface2;
+type TsType9 = typeof tsFunc2;
+type TsType10 = { [K in keyof TsInterface2]: TsInterface2[K] }; // Mapped Type
+type TsType11 = TsType1 extends string ? true : false; // Conditional Type
+
+// Generics (in various positions)
+function genericFunc<T>(arg: T): T { return arg; }
+const genericArrow = <T>(arg: T): T => arg;
+class GenericClass<T> { constructor(public value: T) {} }
+interface GenericInterface<T> { value: T; }
+type GenericType<T> = { value: T; };
+const instance1 = new GenericClass<number>(1);
+const instance2 = new GenericClass(1); // Inference
+
+// Type Assertions and Non-null Assertions
+let val1 = "string" as any;
+let val2 = <any>"string"; // Old style, ensure parens if delimiterSpacing is on for < >
+let val3 = ({ a: 1 } as { a: number });
+let val4 = (obj!.property); // Non-null assertion with parentheses for precedence
+let val5 = obj!.method!(); // Non-null on method and call
+
+// Tuples
+const tuple1: [string, number] = ["hello", 1];
+const tuple2: [string, (string | number)?] = ["hello"];
+function tupleFunc(): [string, number] { return ["a",1]; }
+
+// Parenthesized Types
+type ParenType1 = (string | number);
+type ParenType2 = (A & B) | C;
+type ParenType3 = ( () => void );
+type ParenType4 = (new () => TsClass1);
+let varWithParenType: (string | number);
+
+// Decorators
+@tsDecorator
+class TsDecoratedClass {
+  @tsMethodDecorator( { option: true } )
+  decoratedMethod(@tsParamDecorator param: string): void {}
+}
+
+// Conditional Types with parens
+type IsString<T> = T extends string ? ( T extends "" ? false : true ) : false;
+type Flatten<T> = T extends (infer U)[] ? U : T;
+
+// Index Access Types
+type PropType = TsInterface2["prop"];
+type MethodType = TsInterface2["method1"];
+type ElementType<T> = T extends (infer E)[] ? E : never;
+const arrForElement: ElementType<string[]>;
+
+// Mapped Types with remapping
+type MappedTypeWithRemap = { [K in keyof TsInterface2 as `get${Capitalize<string & K>}`]: () => TsInterface2[K] };
+
+// Template Literal Types
+type World = "world";
+type Greeting = `hello ${World}`;
+type EmailLocaleIDs = "welcome_email" | "email_heading";
+type FooterLocaleIDs = "footer_title" | "footer_sendoff";
+type AllLocaleIDs = `${EmailLocaleIDs | FooterLocaleIDs}_id`;
+
+// Call expressions with type arguments
+const result = genericFunc<number>(123);
+const data = Promise.resolve<string>("hello");
+const mappedArray = [1,2,3].map<string>((n) => String(n));
+
+// Constructor calls with type arguments
+const myMap = new Map<string, number>();
+const mySet = new Set<string>();
+const myTsClass1 = new TsClass1();
+const myTsClass2 = new TsClass1("test");
+const myGenericClass = new GenericClass<string>("hello");
+const myGenericClassInferred = new GenericClass(123); // Type inferred
+
+// Ensure to cover cases from the original delimiter-spacing-true.ts
+(foo: unknown) => { }
+type A = { (foo: unknown); }
+interface B { (foo: unknown); }
+class C { constructor(foo: unknown) { } method(@param foo) { } set foo(foo: unknown) { } }
+class D { constructor(private foo: unknown) { } }
+class F { constructor( @d1({ x: string }) private a: string, ) { } }
+foo(() => { foo }, [] as never[]);
+foo(() => { foo }, bar as boolean);
+foo(() => { foo }, [] as object[][]);
+foo(() => { foo }, [] as Foo<number>[][]);
+foo(() => { foo }, bar as MyCustomType[]);
+
+// Specific check for empty type parameters / arguments
+function emptyGenericParams<>() {}
+emptyGenericParams<>();
+class EmptyGenericClass<> {}
+new EmptyGenericClass<>();
+interface EmptyGenericInterface<> {}
+type EmptyGenericType<> = {};
+const emptyGenericArrow = <>() => {};
+emptyGenericArrow<>();
+const jsxEmptyGeneric = <Component<>>();
+
+// Optional Chaining with type arguments
+obj?.<string>method();
+obj?.<string>prop;
+obj?.<string>()
+
+// `satisfies` operator
+const objSatisfies = { a: 1, b: "hello" } satisfies Record<string, any>;
+const exprSatisfies = (x as number | string) satisfies string;
+const complexSatisfies = ( () => ({ num: 0 }) ) satisfies () => { num: number };Tool output for `overwrite_file_with_block`:
+
+// Arrow function in middle position with type annotation
+callFunction(
+	firstArgument,
+	(param: string) => {
+		return param.toUpperCase();
+	},
+	thirdArgument
+);
+
+// Arrow function in middle with default parameter
+callFunction(
+	firstArgument,
+	(param = "default") => {
+		return param;
+	},
+	thirdArgument
+);
+
+```
+
+
+=============================
+
+# Outputs
+
+## Output 1
+
+-----
+Indent style: Tab
+Indent width: 2
+Line ending: LF
+Line width: 80
+Quote style: Double Quotes
+JSX quote style: Double Quotes
+Quote properties: As needed
+Trailing commas: All
+Semicolons: Always
+Arrow parentheses: Always
+Bracket spacing: true
+Delimiter spacing: false
+Bracket same line: false
+Attribute Position: Auto
+Expand lists: Auto
+-----
+
+```ts
+// Function Signatures (Parameters and Return Types)
+function tsFunc1(): void {}
+function tsFunc2(a: string): number {
+	return 1;
+}
+function tsFunc3(a: string, b: number): boolean {
+	return true;
+}
+function tsFunc4(a: string, b?: number, ...rest: any[]): void {}
+function tsFunc5<T>(a: T): T {
+	return a;
+}
+function tsFunc6<T, U extends T>(a: T, b: U): Map<T, U> {
+	return new Map();
+}
+
+// Arrow Functions (Parameters, Return Types, Generics)
+const tsArrow1 = (): void => {};
+const tsArrow2 = (a: string): number => 1;
+const tsArrow5 = (a: { b: string; c?: number }): void => {};
+const tsArrow3 = <T>(a: T): T => a;
+const tsArrow4 = <T extends number[]>(a: T): number => a.length;
+const tsArrow6 = (
+	a: string, // comment
+	b: number,
+): void => {};
+const tsArrow7 = (
+	// comment
+	a: string,
+	b: number,
+): void => {};
+
+// Class Declarations and Expressions
+class TsClass1 {
+	constructor() {}
+	constructor(a: string) {} // Overload
+	method1(): void {}
+	method2(a: string): number {
+		return 1;
+	}
+	method3<T>(a: T): T {
+		return a;
+	}
+	private _prop: string = "";
+	get prop(): string {
+		return this._prop;
+	}
+	set prop(value: string) {
+		this._prop = value;
+	}
+	static staticMethod<T>(param: T): void {}
+	constructor(
+		private name: string,
+		public age: number,
+	) {} // Parameter properties
+}
+const tsClassExpr = class<T> {
+	constructor(value: T) {}
+	getValue(): T {
+		return this.value;
+	}
+	private value: T;
+};
+
+// Interfaces
+interface TsInterface1 {}
+interface TsInterface2 {
+	prop: string;
+	method1(): void;
+	method2(a: string): number;
+	new (a: number): TsClass1; // Construct signature
+	(a: number): string; // Call signature
+	<T>(a: T): T; // Generic call signature
+	readonly [index: number]: string; // Index signature
+}
+interface TsInterface3<T> {
+	data: T;
+	transform: (input: T) => string;
+}
+
+// Type Aliases
+type TsType1 = string;
+type TsType2 = { a: number; b: string };
+type TsType3 = (a: number) => string;
+type TsType4<T> = { data: T };
+type TsType5 = TsType2 | { c: boolean };
+type TsType6 = [string, number]; // Tuple
+type TsType7 = string & number; // Intersection (not directly delimiter related but good context)
+type TsType8 = keyof TsInterface2;
+type TsType9 = typeof tsFunc2;
+type TsType10 = { [K in keyof TsInterface2]: TsInterface2[K] }; // Mapped Type
+type TsType11 = TsType1 extends string ? true : false; // Conditional Type
+
+// Generics (in various positions)
+function genericFunc<T>(arg: T): T {
+	return arg;
+}
+const genericArrow = <T>(arg: T): T => arg;
+class GenericClass<T> {
+	constructor(public value: T) {}
+}
+interface GenericInterface<T> {
+	value: T;
+}
+type GenericType<T> = { value: T };
+const instance1 = new GenericClass<number>(1);
+const instance2 = new GenericClass(1); // Inference
+
+// Type Assertions and Non-null Assertions
+let val1 = "string" as any;
+let val2 = <any>"string"; // Old style, ensure parens if delimiterSpacing is on for < >
+let val3 = { a: 1 } as { a: number };
+let val4 = obj!.property; // Non-null assertion with parentheses for precedence
+let val5 = obj!.method!(); // Non-null on method and call
+
+// Tuples
+const tuple1: [string, number] = ["hello", 1];
+const tuple2: [string, (string | number)?] = ["hello"];
+function tupleFunc(): [string, number] {
+	return ["a", 1];
+}
+
+// Parenthesized Types
+type ParenType1 = string | number;
+type ParenType2 = (A & B) | C;
+type ParenType3 = () => void;
+type ParenType4 = new () => TsClass1;
+let varWithParenType: string | number;
+
+// Decorators
+@tsDecorator
+class TsDecoratedClass {
+	@tsMethodDecorator({ option: true })
+	decoratedMethod(@tsParamDecorator param: string): void {}
+}
+
+// Conditional Types with parens
+type IsString<T> = T extends string ? (T extends "" ? false : true) : false;
+type Flatten<T> = T extends (infer U)[] ? U : T;
+
+// Index Access Types
+type PropType = TsInterface2["prop"];
+type MethodType = TsInterface2["method1"];
+type ElementType<T> = T extends (infer E)[] ? E : never;
+const arrForElement: ElementType<string[]>;
+
+// Mapped Types with remapping
+type MappedTypeWithRemap = {
+	[K in keyof TsInterface2 as `get${Capitalize<string & K>}`]: () => TsInterface2[K];
+};
+
+// Template Literal Types
+type World = "world";
+type Greeting = `hello ${World}`;
+type EmailLocaleIDs = "welcome_email" | "email_heading";
+type FooterLocaleIDs = "footer_title" | "footer_sendoff";
+type AllLocaleIDs = `${EmailLocaleIDs | FooterLocaleIDs}_id`;
+
+// Call expressions with type arguments
+const result = genericFunc<number>(123);
+const data = Promise.resolve<string>("hello");
+const mappedArray = [1, 2, 3].map<string>((n) => String(n));
+
+// Constructor calls with type arguments
+const myMap = new Map<string, number>();
+const mySet = new Set<string>();
+const myTsClass1 = new TsClass1();
+const myTsClass2 = new TsClass1("test");
+const myGenericClass = new GenericClass<string>("hello");
+const myGenericClassInferred = new GenericClass(123); // Type inferred
+
+// Ensure to cover cases from the original delimiter-spacing-true.ts
+(foo: unknown) => {};
+type A = { (foo: unknown) };
+interface B {
+	(foo: unknown);
+}
+class C {
+	constructor(foo: unknown) {}
+	method(@param foo) {}
+	set foo(foo: unknown) {}
+}
+class D {
+	constructor(private foo: unknown) {}
+}
+class F {
+	constructor(@d1({ x: string }) private a: string) {}
+}
+foo(() => {
+	foo;
+}, [] as never[]);
+foo(() => {
+	foo;
+}, bar as boolean);
+foo(() => {
+	foo;
+}, [] as object[][]);
+foo(() => {
+	foo;
+}, [] as Foo<number>[][]);
+foo(() => {
+	foo;
+}, bar as MyCustomType[]);
+
+// Specific check for empty type parameters / arguments
+function emptyGenericParams<>() {}
+emptyGenericParams<>();
+class EmptyGenericClass<> {}
+new EmptyGenericClass<>();
+interface EmptyGenericInterface<> {}
+type EmptyGenericType<> = {};
+const emptyGenericArrow = <>()
+=>
+{
+}
+emptyGenericArrow<>();
+const jsxEmptyGeneric = <Component<>>();
+
+// Optional Chaining with type arguments
+obj?.<string>method();
+obj?.<string>prop;
+obj?.<string>();
+
+// `satisfies` operator
+const objSatisfies = { a: 1, b: "hello" } satisfies Record<string, any>;
+const exprSatisfies = x as number | string satisfies string;
+const complexSatisfies = (() => ({ num: 0 })) satisfies () => { num: number };
+Tool;
+output;
+for `overwrite_file_with_block`
+:
+
+// Arrow function in middle position with type annotation
+callFunction(
+	firstArgument,
+	(param: string) =>
+{
+	return param.toUpperCase();
+}
+,
+	thirdArgument
+)
+
+// Arrow function in middle with default parameter
+callFunction(
+	firstArgument,
+	(param = "default") => {
+		return param;
+	},
+	thirdArgument,
+);
+```
+
+# Lines exceeding max width of 80 characters
+```
+   88: type TsType7 = string & number; // Intersection (not directly delimiter related but good context)
+  111: let val2 = <any>"string"; // Old style, ensure parens if delimiterSpacing is on for < >
+  149: 	[K in keyof TsInterface2 as `get${Capitalize<string & K>}`]: () => TsInterface2[K];
+```
+
+## Output 1
+
+-----
+Indent style: Tab
+Indent width: 2
+Line ending: LF
+Line width: 80
+Quote style: Double Quotes
+JSX quote style: Double Quotes
+Quote properties: As needed
+Trailing commas: All
+Semicolons: Always
+Arrow parentheses: Always
+Bracket spacing: true
+Delimiter spacing: true
+Bracket same line: false
+Attribute Position: Auto
+Expand lists: Auto
+-----
+
+```ts
+// Function Signatures (Parameters and Return Types)
+function tsFunc1(): void {}
+function tsFunc2( a: string ): number {
+	return 1;
+}
+function tsFunc3( a: string, b: number ): boolean {
+	return true;
+}
+function tsFunc4( a: string, b?: number, ...rest: any[] ): void {}
+function tsFunc5<T>( a: T ): T {
+	return a;
+}
+function tsFunc6<T, U extends T>( a: T, b: U ): Map<T, U> {
+	return new Map();
+}
+
+// Arrow Functions (Parameters, Return Types, Generics)
+const tsArrow1 = (): void => {};
+const tsArrow2 = ( a: string ): number => 1;
+const tsArrow5 = ( a: { b: string; c?: number } ): void => {};
+const tsArrow3 = <T>( a: T ): T => a;
+const tsArrow4 = <T extends number[]>( a: T ): number => a.length;
+const tsArrow6 = (
+	a: string, // comment
+	b: number,
+): void => {};
+const tsArrow7 = (
+	// comment
+	a: string,
+	b: number,
+): void => {};
+
+// Class Declarations and Expressions
+class TsClass1 {
+	constructor() {}
+	constructor( a: string ) {} // Overload
+	method1(): void {}
+	method2( a: string ): number {
+		return 1;
+	}
+	method3<T>( a: T ): T {
+		return a;
+	}
+	private _prop: string = "";
+	get prop(): string {
+		return this._prop;
+	}
+	set prop( value: string ) {
+		this._prop = value;
+	}
+	static staticMethod<T>( param: T ): void {}
+	constructor(
+		private name: string,
+		public age: number,
+	) {} // Parameter properties
+}
+const tsClassExpr = class<T> {
+	constructor( value: T ) {}
+	getValue(): T {
+		return this.value;
+	}
+	private value: T;
+};
+
+// Interfaces
+interface TsInterface1 {}
+interface TsInterface2 {
+	prop: string;
+	method1(): void;
+	method2( a: string ): number;
+	new ( a: number ): TsClass1; // Construct signature
+	( a: number ): string; // Call signature
+	<T>( a: T ): T; // Generic call signature
+	readonly [index: number]: string; // Index signature
+}
+interface TsInterface3<T> {
+	data: T;
+	transform: ( input: T ) => string;
+}
+
+// Type Aliases
+type TsType1 = string;
+type TsType2 = { a: number; b: string };
+type TsType3 = ( a: number ) => string;
+type TsType4<T> = { data: T };
+type TsType5 = TsType2 | { c: boolean };
+type TsType6 = [string, number]; // Tuple
+type TsType7 = string & number; // Intersection (not directly delimiter related but good context)
+type TsType8 = keyof TsInterface2;
+type TsType9 = typeof tsFunc2;
+type TsType10 = { [K in keyof TsInterface2]: TsInterface2[K] }; // Mapped Type
+type TsType11 = TsType1 extends string ? true : false; // Conditional Type
+
+// Generics (in various positions)
+function genericFunc<T>( arg: T ): T {
+	return arg;
+}
+const genericArrow = <T>( arg: T ): T => arg;
+class GenericClass<T> {
+	constructor( public value: T ) {}
+}
+interface GenericInterface<T> {
+	value: T;
+}
+type GenericType<T> = { value: T };
+const instance1 = new GenericClass<number>(1);
+const instance2 = new GenericClass(1); // Inference
+
+// Type Assertions and Non-null Assertions
+let val1 = "string" as any;
+let val2 = <any>"string"; // Old style, ensure parens if delimiterSpacing is on for < >
+let val3 = { a: 1 } as { a: number };
+let val4 = obj!.property; // Non-null assertion with parentheses for precedence
+let val5 = obj!.method!(); // Non-null on method and call
+
+// Tuples
+const tuple1: [string, number] = [ "hello", 1 ];
+const tuple2: [string, (string | number)?] = [ "hello" ];
+function tupleFunc(): [string, number] {
+	return [ "a", 1 ];
+}
+
+// Parenthesized Types
+type ParenType1 = string | number;
+type ParenType2 = (A & B) | C;
+type ParenType3 = () => void;
+type ParenType4 = new () => TsClass1;
+let varWithParenType: string | number;
+
+// Decorators
+@tsDecorator
+class TsDecoratedClass {
+	@tsMethodDecorator( { option: true } )
+	decoratedMethod( @tsParamDecorator param: string ): void {}
+}
+
+// Conditional Types with parens
+type IsString<T> = T extends string ? (T extends "" ? false : true) : false;
+type Flatten<T> = T extends (infer U)[] ? U : T;
+
+// Index Access Types
+type PropType = TsInterface2["prop"];
+type MethodType = TsInterface2["method1"];
+type ElementType<T> = T extends (infer E)[] ? E : never;
+const arrForElement: ElementType<string[]>;
+
+// Mapped Types with remapping
+type MappedTypeWithRemap = {
+	[K in keyof TsInterface2 as `get${ Capitalize<string & K> }`]: () => TsInterface2[K];
+};
+
+// Template Literal Types
+type World = "world";
+type Greeting = `hello ${ World }`;
+type EmailLocaleIDs = "welcome_email" | "email_heading";
+type FooterLocaleIDs = "footer_title" | "footer_sendoff";
+type AllLocaleIDs = `${ EmailLocaleIDs | FooterLocaleIDs }_id`;
+
+// Call expressions with type arguments
+const result = genericFunc<number>(123);
+const data = Promise.resolve<string>("hello");
+const mappedArray = [ 1, 2, 3 ].map<string>( ( n ) => String(n) );
+
+// Constructor calls with type arguments
+const myMap = new Map<string, number>();
+const mySet = new Set<string>();
+const myTsClass1 = new TsClass1();
+const myTsClass2 = new TsClass1("test");
+const myGenericClass = new GenericClass<string>("hello");
+const myGenericClassInferred = new GenericClass(123); // Type inferred
+
+// Ensure to cover cases from the original delimiter-spacing-true.ts
+( foo: unknown ) => {};
+type A = { ( foo: unknown ) };
+interface B {
+	( foo: unknown );
+}
+class C {
+	constructor( foo: unknown ) {}
+	method( @param foo ) {}
+	set foo( foo: unknown ) {}
+}
+class D {
+	constructor( private foo: unknown ) {}
+}
+class F {
+	constructor( @d1( { x: string } ) private a: string ) {}
+}
+foo( () => {
+	foo;
+}, [] as never[] );
+foo( () => {
+	foo;
+}, bar as boolean );
+foo( () => {
+	foo;
+}, [] as object[][] );
+foo( () => {
+	foo;
+}, [] as Foo<number>[][] );
+foo( () => {
+	foo;
+}, bar as MyCustomType[] );
+
+// Specific check for empty type parameters / arguments
+function emptyGenericParams<>() {}
+emptyGenericParams<>();
+class EmptyGenericClass<> {}
+new EmptyGenericClass<>();
+interface EmptyGenericInterface<> {}
+type EmptyGenericType<> = {};
+const emptyGenericArrow = <>()
+=>
+{
+}
+emptyGenericArrow<>();
+const jsxEmptyGeneric = <Component<>>();
+
+// Optional Chaining with type arguments
+obj?.<string>method();
+obj?.<string>prop;
+obj?.<string>();
+
+// `satisfies` operator
+const objSatisfies = { a: 1, b: "hello" } satisfies Record<string, any>;
+const exprSatisfies = x as number | string satisfies string;
+const complexSatisfies = (() => ({ num: 0 })) satisfies () => { num: number };
+Tool;
+output;
+for `overwrite_file_with_block`
+:
+
+// Arrow function in middle position with type annotation
+callFunction(
+	firstArgument,
+	(param: string) =>
+{
+	return param.toUpperCase();
+}
+,
+	thirdArgument
+)
+
+// Arrow function in middle with default parameter
+callFunction(
+	firstArgument,
+	( param = "default" ) => {
+		return param;
+	},
+	thirdArgument,
+);
+```
+
+# Lines exceeding max width of 80 characters
+```
+   88: type TsType7 = string & number; // Intersection (not directly delimiter related but good context)
+  111: let val2 = <any>"string"; // Old style, ensure parens if delimiterSpacing is on for < >
+  149: 	[K in keyof TsInterface2 as `get${ Capitalize<string & K> }`]: () => TsInterface2[K];
+```
