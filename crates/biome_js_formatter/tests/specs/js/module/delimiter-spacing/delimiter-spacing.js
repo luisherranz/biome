@@ -19,6 +19,8 @@ let [i /* comment */] = arr2;
 
 function arrayDestructuringInParams([param1, param2]) {}
 const arrowWithArrayDestructuring = ([param1, param2]) => {};
+function arrayParamFunc([param1, /*comment*/,]) {}
+([param1, /*comment*/,]) => {};
 
 // Array access
 const firstElement = arr1[0];
@@ -60,6 +62,59 @@ foo?.([1, 2]);
 foo?.({ a: 1 });
 foo?.(function() {});
 foo?.(() => {});
+veryLoooooooooooooooooooooooooooooooooooooooooooooooooooongFunctionName(`multiline
+ template`)[foo]().bar;
+this(`multiline
+ template`)[foo]().bar;
+foo(() => {
+  foo
+},
+  []
+);
+foo(() => {
+  foo
+},
+  arr1[1]
+);
+foo(() => {
+  foo
+},
+  call(/regex/),
+);
+foo(() => {
+  foo
+},
+  x + y,
+);
+foo(() => {
+  foo;
+}, x || y);
+foo(() => {
+  foo
+},
+  ++x,
+);
+foo(() => {
+  foo
+},
+  +!-+x,
+);
+foo(() => {
+  foo
+},
+  obj.prop.long,
+);
+foo(() => {
+  foo;
+}, arr1[call(1)]);
+foo(() => {
+  foo;
+}, [call(1 + 2)]);
+foo(param, () => {
+    return true;
+}, []);
+foo.bar(this.baz, (param) => param());
+foo(({ param1, param2 }) => { });
 
 // Function parameters
 function foo() {}
@@ -67,6 +122,11 @@ function foo(a) {}
 function foo(a, b) {}
 function foo(a, /* comment */ b) {}
 function foo(a, b, ) {} // Trailing comma
+function foo(verylooooooooooooooooooooooooooooooooooooooooooooonooooooooooooooooooooogArgumentname) {}
+function foo({ veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongParameterName }) {}
+async function asyncFunc(param) {}
+function* generatorFunc(param) {}
+async function* asyncGeneratorFunc(param) {}
 
 // Arrow function parameters
 const foo = () => {};
@@ -76,6 +136,8 @@ const foo = (a, /* comment */ b) => {};
 const foo = (a, b, ) => {}; // Trailing comma
 const foo = ({ a, b }) => {};
 const foo = (a = 1) => {};
+const foo = (veryLoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongArgumentName) => {}
+const foo = ({ veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongParameterName }) => {}
 const foo = async () => {};
 const foo = async (a) => {};
 const foo = () => ({}); // Implicit object return
@@ -87,6 +149,7 @@ const foo = (
     a,
     b
 ) => {};
+const foo = () => condition ? 1 : 2;
 
 // Class declarations and expressions
 class MyClass {}
@@ -98,8 +161,10 @@ class MyClass {
   method3(a, b) {}
   method4({ p1, p2 }) {}
   method5([p1, p2]) {}
-  async method6() {}
-  *method7() {}
+  method6(verylooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongArgumentname) {}
+  method7({ veryloooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongParametername }) {}
+  async method8() {}
+  *method9() {}
   get propName() { return 1; }
   set propName(value) {}
   static staticMethod() {}
@@ -118,6 +183,7 @@ while (x>0) { break; }
 try {} catch (e) {} finally {}
 try {} catch ({ error }) {} finally {}
 try {} catch ([error]) {} finally {}
+try {} catch(veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongErrorParameterName) {}
 switch (varName) { case 1: break; default: break; }
 
 // Parentheses in expressions
@@ -128,6 +194,9 @@ const sequenceExpr = (1, 2, 3);
 const sequenceExprWithComment = (1, /* comment */ 2, 3);
 const parenAwait = (await foo) || 1;
 const optionalCallWithParenAwait = (await foo)?.();
+async () => {
+    (await foo)?.();
+}
 
 // Decorators
 @decorator
@@ -154,18 +223,32 @@ class ClassWithDecoratedMethod {
 
   @methodDecoratorWithParams(1, 2)
   methodWithParams() {}
+
+  @decorator([param1, param2]) property = value;
 }
 
 // Template Literals
-const templateInterpolation1 = `${"expression"}`;
-const templateInterpolation2 = `${123}`;
-const templateInterpolation3 = `${call()}`;
-const templateInterpolation4 = `${obj.prop}`;
-const template1 = `${[1, 2]}`;
-const template2 = `${{ a: 1 }}`;
-const template3 = `${() => {}}`;
-const template4 = `Hello ${name}, you are ${getAge(user)}`;
-const template5 = `Coordinates: ${point[0]}, ${point[1]}`;
+const template = `a${"b"}c${d}e${f()}g${h(i)}j${k.l}m`;
+const template2 = `a${b[0]}c${d([e])}f${g({ h: i })}j${() => {}}k`;
+
+// Tests
+expect(() => foo({ a: "" }));
+it('test', () => {
+  expect(true);
+});
+it('test', () => {
+  expect(
+    // comment
+  ).foo();
+});
+test.each`
+param |
+${[{ a: 1, b: 2 }]}|
+${[{ a: 1, b: 2 }, { c: 3, d: 4 }]}|
+`("test", ({param1, param2}) => {});
+describe(`${param1 + param2}`, 
+    () => {}
+  );
 
 // New expressions
 const newExpr1 = new MyClass1();
