@@ -1529,6 +1529,9 @@ impl OverrideSettingPattern {
         if let Some(bracket_spacing) = js_formatter.bracket_spacing.or(formatter.bracket_spacing) {
             options.set_bracket_spacing(bracket_spacing);
         }
+        if let Some(delimiter_spacing) = js_formatter.delimiter_spacing {
+            options.set_delimiter_spacing(delimiter_spacing);
+        }
         if let Some(bracket_same_line) = js_formatter.bracket_same_line {
             options.set_bracket_same_line(bracket_same_line);
         }
@@ -1572,6 +1575,9 @@ impl OverrideSettingPattern {
         {
             options.set_bracket_spacing(bracket_spacing);
         }
+        if let Some(delimiter_spacing) = json_formatter.delimiter_spacing {
+            options.set_delimiter_spacing(delimiter_spacing);
+        }
     }
 
     fn apply_overrides_to_css_format_options(&self, options: &mut CssFormatOptions) {
@@ -1592,6 +1598,9 @@ impl OverrideSettingPattern {
         }
         if let Some(quote_style) = css_formatter.quote_style {
             options.set_quote_style(quote_style);
+        }
+        if let Some(delimiter_spacing) = css_formatter.delimiter_spacing {
+            options.set_delimiter_spacing(delimiter_spacing);
         }
     }
 

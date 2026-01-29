@@ -27,8 +27,8 @@ use biome_configuration::javascript::{
     JsxEverywhere, JsxRuntime, UnsafeParameterDecoratorsEnabled,
 };
 use biome_formatter::{
-    AttributePosition, BracketSameLine, BracketSpacing, Expand, FormatError, IndentStyle,
-    IndentWidth, LineEnding, LineWidth, Printed, QuoteStyle,
+    AttributePosition, BracketSameLine, BracketSpacing, DelimiterSpacing, Expand, FormatError,
+    IndentStyle, IndentWidth, LineEnding, LineWidth, Printed, QuoteStyle,
 };
 use biome_fs::BiomePath;
 use biome_js_analyze::utils::rename::{RenameError, RenameSymbolExtensions};
@@ -68,6 +68,7 @@ pub struct JsFormatterSettings {
     pub semicolons: Option<Semicolons>,
     pub arrow_parentheses: Option<ArrowParentheses>,
     pub bracket_spacing: Option<BracketSpacing>,
+    pub delimiter_spacing: Option<DelimiterSpacing>,
     pub bracket_same_line: Option<BracketSameLine>,
     pub line_ending: Option<LineEnding>,
     pub line_width: Option<LineWidth>,
@@ -92,6 +93,7 @@ impl From<JsFormatterConfiguration> for JsFormatterSettings {
             enabled: value.enabled,
             line_width: value.line_width,
             bracket_spacing: value.bracket_spacing,
+            delimiter_spacing: value.delimiter_spacing,
             attribute_position: value.attribute_position,
             indent_width: value.indent_width,
             indent_style: value.indent_style,
@@ -252,6 +254,7 @@ impl ServiceLanguage for JsLanguage {
                 .or(global.bracket_spacing)
                 .unwrap_or_default(),
         )
+        .with_delimiter_spacing(language.delimiter_spacing.unwrap_or_default())
         .with_bracket_same_line(
             language
                 .bracket_same_line
