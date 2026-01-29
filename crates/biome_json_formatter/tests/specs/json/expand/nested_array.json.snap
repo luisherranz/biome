@@ -26,6 +26,7 @@ Line width: 80
 Trailing commas: None
 Expand: Auto
 Bracket spacing: true
+Delimiter spacing: false
 -----
 
 ```json
@@ -61,6 +62,7 @@ Line width: 80
 Trailing commas: None
 Expand: Always
 Bracket spacing: true
+Delimiter spacing: false
 -----
 
 ```json
