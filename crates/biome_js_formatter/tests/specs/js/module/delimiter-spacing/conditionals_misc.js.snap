@@ -1,0 +1,539 @@
+---
+source: crates/biome_formatter_test/src/snapshot_builder.rs
+info: js/module/delimiter-spacing/conditionals_misc.js
+---
+# Input
+
+```js
+// =====================
+// Conditional expressions (ternary alignment)
+// =====================
+
+// Single line ternary
+const foo = a ? b : c;
+
+// Multi-line function expression consequent
+const foo1 = a
+	? function() {
+		return b;
+	}
+	: c;
+
+// Multi-line object literal consequent
+const foo2 = a
+	? {
+		b: 1,
+		c: 2,
+	}
+	: d;
+
+// Multi-line arrow function consequent
+const foo3 = a
+	? () => {
+		return b;
+	}
+	: c;
+
+// Nested object consequent
+const foo4 = a
+	? {
+		b: {
+			c: 1,
+		},
+	}
+	: d;
+
+// Multi-line class expression consequent
+const foo5 = a
+	? class {
+		b() {
+			return c;
+		}
+	}
+	: d;
+
+// =====================
+// Nested conditionals
+// =====================
+
+// Nested ternary fits on line
+const foo6 = a ? (b ? c : d) : e;
+
+// Chained ternary with multi-line consequent
+const foo7 = a
+	? {
+		b: 1,
+	}
+	: c
+		? d
+		: e;
+
+// =====================
+// Await expressions
+// =====================
+
+// Basic await
+async function foo8() {
+	return await a;
+}
+
+// Await function call
+async function foo9() {
+	return await a();
+}
+
+// Await member expression
+async function foo10() {
+	return await a.b;
+}
+
+// Await method call
+async function foo11() {
+	return await a.b();
+}
+
+// Await with parentheses
+async function foo12() {
+	return await (a || b);
+}
+
+// Await in arrow function
+const fn = async () => await a;
+
+// Await in expression
+async function foo13() {
+	const a = await b + await c;
+}
+
+// =====================
+// Extends clause
+// =====================
+
+// Basic extends
+class Foo extends Bar {}
+
+// Extends with generic (TypeScript-like but valid JS)
+class Baz extends Bar {}
+
+// Extends with member expression
+class A extends Foo.Bar {}
+
+// Extends with call expression
+class B extends foo(Bar) {}
+
+// Extends with complex expression
+class C extends (a ? D : E) {}
+
+// =====================
+// Require expressions
+// =====================
+
+// Basic require
+const foo14 = require("module");
+
+// Require with path
+const foo15 = require("./path/to/module");
+
+// Require with variable
+const foo16 = require(a);
+
+// Require in destructuring
+const { a, b } = require("module");
+
+// Require in array destructuring
+const [c] = require("module");
+
+// =====================
+// Function declaration reference
+// =====================
+
+// Function declaration with parameters
+function foo17(a, b, c) {}
+
+// Function declaration with object destructuring
+function foo18({a, b}) {}
+
+// Function declaration with array destructuring
+function foo19([a, b]) {}
+
+// Async function declaration
+async function foo20(a) {}
+
+// Generator function declaration
+function* foo21(a) {}
+
+// Async generator function declaration
+async function* foo22(a) {}
+
+```
+
+
+=============================
+
+# Outputs
+
+## Output 1
+
+-----
+Indent style: Tab
+Indent width: 2
+Line ending: LF
+Line width: 80
+Quote style: Double Quotes
+JSX quote style: Double Quotes
+Quote properties: As needed
+Trailing commas: All
+Semicolons: Always
+Arrow parentheses: Always
+Bracket spacing: true
+Delimiter spacing: false
+Bracket same line: false
+Attribute Position: Auto
+Expand lists: Auto
+Operator linebreak: After
+-----
+
+```js
+// =====================
+// Conditional expressions (ternary alignment)
+// =====================
+
+// Single line ternary
+const foo = a ? b : c;
+
+// Multi-line function expression consequent
+const foo1 = a
+	? function () {
+			return b;
+		}
+	: c;
+
+// Multi-line object literal consequent
+const foo2 = a
+	? {
+			b: 1,
+			c: 2,
+		}
+	: d;
+
+// Multi-line arrow function consequent
+const foo3 = a
+	? () => {
+			return b;
+		}
+	: c;
+
+// Nested object consequent
+const foo4 = a
+	? {
+			b: {
+				c: 1,
+			},
+		}
+	: d;
+
+// Multi-line class expression consequent
+const foo5 = a
+	? class {
+			b() {
+				return c;
+			}
+		}
+	: d;
+
+// =====================
+// Nested conditionals
+// =====================
+
+// Nested ternary fits on line
+const foo6 = a ? (b ? c : d) : e;
+
+// Chained ternary with multi-line consequent
+const foo7 = a
+	? {
+			b: 1,
+		}
+	: c
+		? d
+		: e;
+
+// =====================
+// Await expressions
+// =====================
+
+// Basic await
+async function foo8() {
+	return await a;
+}
+
+// Await function call
+async function foo9() {
+	return await a();
+}
+
+// Await member expression
+async function foo10() {
+	return await a.b;
+}
+
+// Await method call
+async function foo11() {
+	return await a.b();
+}
+
+// Await with parentheses
+async function foo12() {
+	return await (a || b);
+}
+
+// Await in arrow function
+const fn = async () => await a;
+
+// Await in expression
+async function foo13() {
+	const a = (await b) + (await c);
+}
+
+// =====================
+// Extends clause
+// =====================
+
+// Basic extends
+class Foo extends Bar {}
+
+// Extends with generic (TypeScript-like but valid JS)
+class Baz extends Bar {}
+
+// Extends with member expression
+class A extends Foo.Bar {}
+
+// Extends with call expression
+class B extends foo(Bar) {}
+
+// Extends with complex expression
+class C extends (a ? D : E) {}
+
+// =====================
+// Require expressions
+// =====================
+
+// Basic require
+const foo14 = require("module");
+
+// Require with path
+const foo15 = require("./path/to/module");
+
+// Require with variable
+const foo16 = require(a);
+
+// Require in destructuring
+const { a, b } = require("module");
+
+// Require in array destructuring
+const [c] = require("module");
+
+// =====================
+// Function declaration reference
+// =====================
+
+// Function declaration with parameters
+function foo17(a, b, c) {}
+
+// Function declaration with object destructuring
+function foo18({ a, b }) {}
+
+// Function declaration with array destructuring
+function foo19([a, b]) {}
+
+// Async function declaration
+async function foo20(a) {}
+
+// Generator function declaration
+function* foo21(a) {}
+
+// Async generator function declaration
+async function* foo22(a) {}
+```
+
+## Output 1
+
+-----
+Indent style: Tab
+Indent width: 2
+Line ending: LF
+Line width: 80
+Quote style: Double Quotes
+JSX quote style: Double Quotes
+Quote properties: As needed
+Trailing commas: All
+Semicolons: Always
+Arrow parentheses: Always
+Bracket spacing: true
+Delimiter spacing: true
+Bracket same line: false
+Attribute Position: Auto
+Expand lists: Auto
+Operator linebreak: After
+-----
+
+```js
+// =====================
+// Conditional expressions (ternary alignment)
+// =====================
+
+// Single line ternary
+const foo = a ? b : c;
+
+// Multi-line function expression consequent
+const foo1 = a
+	? function () {
+			return b;
+		}
+	: c;
+
+// Multi-line object literal consequent
+const foo2 = a
+	? {
+			b: 1,
+			c: 2,
+		}
+	: d;
+
+// Multi-line arrow function consequent
+const foo3 = a
+	? () => {
+			return b;
+		}
+	: c;
+
+// Nested object consequent
+const foo4 = a
+	? {
+			b: {
+				c: 1,
+			},
+		}
+	: d;
+
+// Multi-line class expression consequent
+const foo5 = a
+	? class {
+			b() {
+				return c;
+			}
+		}
+	: d;
+
+// =====================
+// Nested conditionals
+// =====================
+
+// Nested ternary fits on line
+const foo6 = a ? (b ? c : d) : e;
+
+// Chained ternary with multi-line consequent
+const foo7 = a
+	? {
+			b: 1,
+		}
+	: c
+		? d
+		: e;
+
+// =====================
+// Await expressions
+// =====================
+
+// Basic await
+async function foo8() {
+	return await a;
+}
+
+// Await function call
+async function foo9() {
+	return await a();
+}
+
+// Await member expression
+async function foo10() {
+	return await a.b;
+}
+
+// Await method call
+async function foo11() {
+	return await a.b();
+}
+
+// Await with parentheses
+async function foo12() {
+	return await ( a || b );
+}
+
+// Await in arrow function
+const fn = async () => await a;
+
+// Await in expression
+async function foo13() {
+	const a = ( await b ) + ( await c );
+}
+
+// =====================
+// Extends clause
+// =====================
+
+// Basic extends
+class Foo extends Bar {}
+
+// Extends with generic (TypeScript-like but valid JS)
+class Baz extends Bar {}
+
+// Extends with member expression
+class A extends Foo.Bar {}
+
+// Extends with call expression
+class B extends foo( Bar ) {}
+
+// Extends with complex expression
+class C extends ( a ? D : E ) {}
+
+// =====================
+// Require expressions
+// =====================
+
+// Basic require
+const foo14 = require( "module" );
+
+// Require with path
+const foo15 = require( "./path/to/module" );
+
+// Require with variable
+const foo16 = require( a );
+
+// Require in destructuring
+const { a, b } = require( "module" );
+
+// Require in array destructuring
+const [ c ] = require( "module" );
+
+// =====================
+// Function declaration reference
+// =====================
+
+// Function declaration with parameters
+function foo17( a, b, c ) {}
+
+// Function declaration with object destructuring
+function foo18( { a, b } ) {}
+
+// Function declaration with array destructuring
+function foo19( [ a, b ] ) {}
+
+// Async function declaration
+async function foo20( a ) {}
+
+// Generator function declaration
+function* foo21( a ) {}
+
+// Async generator function declaration
+async function* foo22( a ) {}
+```
