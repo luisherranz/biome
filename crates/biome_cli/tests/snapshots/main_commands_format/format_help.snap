@@ -66,6 +66,9 @@ Formatting options specific to the JavaScript files
                               JSX elements. Defaults to auto.
         --javascript-formatter-bracket-spacing=<true|false>  Whether to insert spaces around
                               brackets in object literals. Defaults to true.
+        --javascript-formatter-delimiter-spacing=<true|false>  Whether to insert spaces inside
+                              delimiters. Affects parentheses `()`, square brackets `[]`, TypeScript
+                              angle brackets `<>`, and JSX curly braces `{}`. Defaults to false.
         --javascript-formatter-expand=<auto|always|never>  Whether to expand arrays and objects on
                               multiple lines. When set to `auto`, object literals are formatted on
                               multiple lines if the first property has a newline, and array literals
@@ -169,6 +172,8 @@ Available options:
                               Defaults to "auto".
         --json-formatter-bracket-spacing=<true|false>  Whether to insert spaces around brackets in
                               object literals. Defaults to true.
+        --json-formatter-delimiter-spacing=<true|false>  Whether to insert spaces inside square
+                              brackets `[]`. Defaults to false.
         --stdin-file-path=PATH  Use this option when you want to format code piped from `stdin`, and
                               print the output to `stdout`.
                               The file doesn't need to exist on disk, what matters is the extension

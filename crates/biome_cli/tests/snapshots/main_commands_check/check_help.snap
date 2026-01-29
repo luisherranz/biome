@@ -89,6 +89,9 @@ The configuration that is contained inside the file `biome.json`
                               JSX elements. Defaults to auto.
         --javascript-formatter-bracket-spacing=<true|false>  Whether to insert spaces around
                               brackets in object literals. Defaults to true.
+        --javascript-formatter-delimiter-spacing=<true|false>  Whether to insert spaces inside
+                              delimiters. Affects parentheses `()`, square brackets `[]`, TypeScript
+                              angle brackets `<>`, and JSX curly braces `{}`. Defaults to false.
         --javascript-formatter-expand=<auto|always|never>  Whether to expand arrays and objects on
                               multiple lines. When set to `auto`, object literals are formatted on
                               multiple lines if the first property has a newline, and array literals
@@ -132,6 +135,8 @@ The configuration that is contained inside the file `biome.json`
                               Defaults to "auto".
         --json-formatter-bracket-spacing=<true|false>  Whether to insert spaces around brackets in
                               object literals. Defaults to true.
+        --json-formatter-delimiter-spacing=<true|false>  Whether to insert spaces inside square
+                              brackets `[]`. Defaults to false.
         --json-linter-enabled=<true|false>  Control the linter for JSON (and its super languages)
                               files.
         --json-assist-enabled=<true|false>  Control the assist for JSON (and its super languages)
@@ -152,6 +157,8 @@ The configuration that is contained inside the file `biome.json`
                               super languages) files. Defaults to 80.
         --css-formatter-quote-style=<double|single>  The type of quotes used in CSS code. Defaults
                               to double.
+        --css-formatter-delimiter-spacing=<true|false>  Whether to insert spaces inside delimiters.
+                              Affects parentheses `()` and square brackets `[]`. Defaults to false.
         --css-linter-enabled=<true|false>  Control the linter for CSS files.
         --css-assist-enabled=<true|false>  Control the assist for CSS files.
         --graphql-formatter-enabled=<true|false>  Control the formatter for GraphQL files.
