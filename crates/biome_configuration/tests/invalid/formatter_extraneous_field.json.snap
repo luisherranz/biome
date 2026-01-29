@@ -24,6 +24,7 @@ formatter_extraneous_field.json:3:3 deserialize ━━━━━━━━━━�
   - attributePosition
   - bracketSameLine
   - bracketSpacing
+  - delimiterSpacing
   - expand
   - useEditorconfig
   - includes
