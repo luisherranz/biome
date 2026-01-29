@@ -3,7 +3,7 @@ use biome_formatter::{
     CstFormatContext, FormatContext, FormatOptions, IndentStyle, LineEnding, LineWidth,
     TransformSourceMap,
 };
-use biome_formatter::{IndentWidth, QuoteStyle, prelude::*};
+use biome_formatter::{DelimiterSpacing, IndentWidth, QuoteStyle, prelude::*};
 
 use crate::comments::{CssComments, FormatCssLeadingComment};
 use biome_css_syntax::{CssFileSource, CssLanguage};
@@ -62,6 +62,7 @@ pub struct CssFormatOptions {
     line_ending: LineEnding,
     line_width: LineWidth,
     quote_style: QuoteStyle,
+    delimiter_spacing: DelimiterSpacing,
     _file_source: CssFileSource,
 }
 
@@ -74,6 +75,7 @@ impl CssFormatOptions {
             line_ending: LineEnding::default(),
             line_width: LineWidth::default(),
             quote_style: QuoteStyle::default(),
+            delimiter_spacing: DelimiterSpacing::default(),
         }
     }
 
@@ -102,6 +104,11 @@ impl CssFormatOptions {
         self
     }
 
+    pub fn with_delimiter_spacing(mut self, delimiter_spacing: DelimiterSpacing) -> Self {
+        self.delimiter_spacing = delimiter_spacing;
+        self
+    }
+
     pub fn set_indent_style(&mut self, indent_style: IndentStyle) {
         self.indent_style = indent_style;
     }
@@ -122,8 +129,16 @@ impl CssFormatOptions {
         self.quote_style = quote_style;
     }
 
+    pub fn set_delimiter_spacing(&mut self, delimiter_spacing: DelimiterSpacing) {
+        self.delimiter_spacing = delimiter_spacing;
+    }
+
     pub fn quote_style(&self) -> QuoteStyle {
         self.quote_style
+    }
+
+    pub fn delimiter_spacing(&self) -> DelimiterSpacing {
+        self.delimiter_spacing
     }
 }
 
@@ -155,6 +170,7 @@ impl fmt::Display for CssFormatOptions {
         writeln!(f, "Indent width: {}", self.indent_width.value())?;
         writeln!(f, "Line ending: {}", self.line_ending)?;
         writeln!(f, "Line width: {}", self.line_width.value())?;
-        writeln!(f, "Quote style: {}", self.quote_style)
+        writeln!(f, "Quote style: {}", self.quote_style)?;
+        writeln!(f, "Delimiter spacing: {}", self.delimiter_spacing.value())
     }
 }
