@@ -373,13 +373,18 @@ where
         let needs_parentheses = self.needs_parentheses(node);
 
         if needs_parentheses {
+            let should_insert_space = f.options().delimiter_spacing().value();
             write!(f, [token("(")])?;
-        }
-
-        self.fmt_fields(node, f)?;
-
-        if needs_parentheses {
+            if should_insert_space {
+                write!(f, [space()])?;
+            }
+            self.fmt_fields(node, f)?;
+            if should_insert_space {
+                write!(f, [space()])?;
+            }
             write!(f, [token(")")])?;
+        } else {
+            self.fmt_fields(node, f)?;
         }
 
         Ok(())
